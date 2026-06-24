@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Watermelon UI — CSS custom properties ───────────────────────────────── */
+/* Palette:                                                                    */
+/*   Background  #FDF8F5  hsl(20 67% 98%)   warm cream                        */
+/*   Foreground  #1A120B  hsl(28 41%  7%)   dark seed                         */
+/*   Primary     #E63946  hsl(354 72% 56%)  watermelon flesh red               */
+/*   Secondary   #1B4332  hsl(154 43% 18%)  rind dark green                   */
+/*   Accent      #FFE8EB  hsl(354 100% 95%) pale pink                          */
+/* ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --background:          20 67% 98%;
+  --foreground:          28 41%  7%;
+
+  --card:                 0  0% 100%;
+  --card-foreground:     28 41%  7%;
+
+  --popover:              0  0% 100%;
+  --popover-foreground:  28 41%  7%;
+
+  --primary:            354 72% 56%;    /* #E63946 flesh red  */
+  --primary-foreground:   0  0% 100%;
+
+  --secondary:          154 43% 18%;    /* #1B4332 rind green */
+  --secondary-foreground: 0  0% 98%;
+
+  --muted:               20 30% 93%;
+  --muted-foreground:    25 20% 42%;
+
+  --accent:             354 100% 95%;   /* #FFE8EB pale pink  */
+  --accent-foreground:  354 60% 38%;
+
+  --destructive:          0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border:              14 30% 88%;
+  --input:               14 30% 88%;
+  --ring:               354 72% 56%;
+
+  --radius:              0.5rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: hsl(var(--background));
+  font-family: 'Inter Variable', 'Inter', sans-serif;
+  color: hsl(var(--foreground));
+  overflow: hidden;
+}
+
+/* ── Range slider — watermelon red thumb, warm track ──────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 99px;
+  background: hsl(var(--border));
+  outline: none;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2.5px solid hsl(var(--card));
+  box-shadow: 0 1px 5px hsl(var(--primary) / 0.35);
+  margin-top: -6px;
+}
+input[type='range']::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2.5px solid hsl(var(--card));
+  box-shadow: 0 1px 5px hsl(var(--primary) / 0.35);
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 99px;
+  background: hsl(var(--border));
+}
+input[type='range']:hover::-webkit-slider-thumb {
+  background: hsl(354 72% 46%);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
