@@ -16,13 +16,11 @@ export default function App() {
   const [fields,     setFields]     = useState(null)
   const [showLabels, setShowLabels] = useState(true)
   const [zipBuffer,  setZipBuffer]  = useState(null)
-  const [showCanvas, setShowCanvas] = useState(false)
 
   const workerRef = useRef(null)
 
   const appendLog = useCallback((msg) => setLogs(prev => [...prev, msg]), [])
 
-  // Initialise worker once
   useEffect(() => {
     workerRef.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
 
@@ -34,7 +32,6 @@ export default function App() {
         setFields(resultFields)
         setZipBuffer(zb)
         setIsRunning(false)
-        setShowCanvas(true)
       } else if (type === 'ERROR') {
         appendLog(`ERROR: ${message}`)
         setIsRunning(false)
@@ -64,27 +61,26 @@ export default function App() {
     )
   }
 
-  function handleVisualize() { setShowCanvas(true) }
   function handleToggleLabels() { setShowLabels(prev => !prev) }
 
   return (
     <div className="flex flex-col w-screen h-screen bg-background overflow-hidden">
 
-      {/* ── Header — secondary (rind green) ───────────────────────────────── */}
+      {/* Header */}
       <header className="flex items-center gap-3 px-4 py-[9px] bg-secondary flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.20)]">
-        <WatermelonSliceIcon />
+        <TractorIcon />
         <span className="text-[13.5px] font-bold text-secondary-foreground tracking-tight">
           FS25 Image to Fields
         </span>
         <Badge
           variant="outline"
-          className="ml-1 border-[#3D8B67] text-[#52B788] bg-transparent text-[9px] px-2"
+          className="ml-1 border-[#3D8B67] text-[#52B788] bg-transparent text-[11px] px-2"
         >
-          v0.2.0 — web
+          v0.2.0 - web
         </Badge>
       </header>
 
-      {/* ── Body — three columns ──────────────────────────────────────────── */}
+      {/* Body - three columns */}
       <div className="flex flex-1 min-h-0">
 
         {/* Log panel */}
@@ -101,7 +97,6 @@ export default function App() {
             distanceThreshold={distanceThreshold} setDistanceThreshold={setDistanceThreshold}
             borderReduction={borderReduction} setBorderReduction={setBorderReduction}
             onRun={handleRun}
-            onVisualize={handleVisualize}
             onToggleLabels={handleToggleLabels}
             isRunning={isRunning}
             hasResult={!!fields}
@@ -112,7 +107,7 @@ export default function App() {
         {/* Canvas panel */}
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <FieldCanvas
-            fields={showCanvas ? fields : null}
+            fields={fields}
             showLabels={showLabels}
           />
         </div>
@@ -122,17 +117,25 @@ export default function App() {
   )
 }
 
-function WatermelonSliceIcon() {
+function TractorIcon() {
   return (
-    <svg width="22" height="18" viewBox="0 0 22 18" fill="none" aria-hidden="true">
-      {/* rind arc */}
-      <path d="M1 17 Q1 1 11 1 Q21 1 21 17 Z" fill="#2D6A4F" />
-      {/* flesh */}
-      <path d="M3 17 Q3 4 11 4 Q19 4 19 17 Z" fill="#E63946" />
-      {/* seeds */}
-      <circle cx="8"  cy="11" r="1.1" fill="#1A120B" />
-      <circle cx="11" cy="8.5" r="1.1" fill="#1A120B" />
-      <circle cx="14" cy="11" r="1.1" fill="#1A120B" />
+    <svg width="28" height="22" viewBox="0 0 28 22" fill="none" aria-hidden="true">
+      {/* rear large wheel */}
+      <circle cx="9" cy="16" r="6" fill="#2D6A4F" />
+      <circle cx="9" cy="16" r="3" fill="#1B4332" />
+      <circle cx="9" cy="16" r="1.2" fill="#F9F4EF" />
+      {/* body */}
+      <rect x="7" y="6" width="13" height="9" rx="1.5" fill="#F9F4EF" />
+      {/* cab */}
+      <rect x="14" y="2" width="7" height="7" rx="1" fill="#F9F4EF" />
+      {/* exhaust pipe */}
+      <rect x="20" y="0" width="2" height="4" rx="1" fill="#A08E85" />
+      {/* front small wheel */}
+      <circle cx="22" cy="17" r="4" fill="#2D6A4F" />
+      <circle cx="22" cy="17" r="2" fill="#1B4332" />
+      <circle cx="22" cy="17" r="0.9" fill="#F9F4EF" />
+      {/* hitch arm */}
+      <rect x="1" y="14" width="8" height="2" rx="1" fill="#A08E85" />
     </svg>
   )
 }

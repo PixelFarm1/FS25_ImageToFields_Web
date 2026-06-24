@@ -12,7 +12,7 @@ export default function ControlsPanel({
   simplificationStrength, setSimplificationStrength,
   distanceThreshold, setDistanceThreshold,
   borderReduction, setBorderReduction,
-  onRun, onVisualize, onToggleLabels,
+  onRun, onToggleLabels,
   isRunning, hasResult, zipBuffer,
 }) {
   function downloadZip() {
@@ -26,30 +26,30 @@ export default function ControlsPanel({
   return (
     <div className="flex flex-col h-full bg-background px-3 py-3 gap-3 overflow-y-auto">
 
-      {/* ── Field mask PNG ─────────────────────────────────────────────────── */}
+      {/* Field mask PNG */}
       <section>
         <SectionLabel>Field mask PNG</SectionLabel>
         <FileDropZone file={file} onFile={onFile} />
       </section>
 
-      {/* ── DEM size ───────────────────────────────────────────────────────── */}
+      {/* DEM size */}
       <section>
-        <SectionLabel tooltip="Resolution of your DEM.png minus 1 pixel (e.g. 2049×2049 → choose 2048)">
+        <SectionLabel tooltip="Resolution of your DEM.png minus 1 pixel (e.g. 2049x2049 -> choose 2048)">
           DEM size
         </SectionLabel>
         <Select value={String(demSize)} onValueChange={v => setDemSize(parseInt(v))}>
-          <SelectTrigger className="w-full text-[12px]">
+          <SelectTrigger className="w-full text-[13px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {[1024, 2048, 4096, 8192].map(v => (
-              <SelectItem key={v} value={String(v)} className="text-[12px]">{v}</SelectItem>
+              <SelectItem key={v} value={String(v)} className="text-[13px]">{v}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </section>
 
-      {/* ── Processing settings ────────────────────────────────────────────── */}
+      {/* Processing settings */}
       <section className="rounded-lg border border-border bg-card px-3 pt-3 pb-1">
         <SectionLabel>Processing settings</SectionLabel>
         <SliderWithInput
@@ -76,21 +76,17 @@ export default function ControlsPanel({
         />
       </section>
 
-      {/* ── Action buttons — Watermelon UI Button ─────────────────────────── */}
+      {/* Action buttons */}
       <div className="mt-auto flex flex-col gap-1.5">
         <Button onClick={onRun} disabled={!file || isRunning} className="w-full">
-          {isRunning ? <><SpinIcon /> Running…</> : <><PlayIcon /> Run</>}
-        </Button>
-        <Button onClick={onVisualize} disabled={!hasResult || isRunning}
-          variant="outline" size="sm" className="w-full text-[12px]">
-          <EyeIcon /> Visualise fields
+          {isRunning ? <><SpinIcon /> Running...</> : <><PlayIcon /> Run</>}
         </Button>
         <Button onClick={onToggleLabels} disabled={!hasResult}
-          variant="outline" size="sm" className="w-full text-[12px]">
+          variant="outline" size="sm" className="w-full text-[13px]">
           <TagIcon /> Toggle field IDs
         </Button>
         <Button onClick={downloadZip} disabled={!zipBuffer}
-          variant="secondary" size="sm" className="w-full text-[12px]">
+          variant="secondary" size="sm" className="w-full text-[13px]">
           <DownloadIcon /> Download .zip
         </Button>
       </div>
@@ -99,10 +95,9 @@ export default function ControlsPanel({
   )
 }
 
-/* ── Local helpers ─────────────────────────────────────────────────────────── */
 function SectionLabel({ children, tooltip }) {
   return (
-    <p className="text-[9.5px] text-muted-foreground uppercase tracking-widest mb-[6px] font-medium"
+    <p className="text-[11px] text-muted-foreground uppercase tracking-widest mb-[6px] font-medium"
        title={tooltip}>
       {children}
     </p>
@@ -118,9 +113,6 @@ function SpinIcon() {
       <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/>
     </svg>
   )
-}
-function EyeIcon() {
-  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 }
 function TagIcon() {
   return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
