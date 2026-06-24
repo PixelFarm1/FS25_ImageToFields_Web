@@ -81,7 +81,7 @@ export function stage3(fields, distanceThreshold, log) {
  * Positive distance = shrink inward for a CW polygon (Y-down coords).
  */
 function shrinkPolygon(pts, distance) {
-  if (!distance || distance <= 0 || pts.length < 3) return pts
+  if (!distance || pts.length < 3) return pts
 
   const n = pts.length
   const result = []
@@ -131,7 +131,7 @@ export function stage4(fields, simplificationStrength, borderReduction, log) {
 
       // Shrink only the outer loop
       if (loop.id === 1 && borderReduction > 0) {
-        coords = shrinkPolygon(coords, borderReduction)
+        coords = shrinkPolygon(coords, -borderReduction)
       }
 
       totalRemoved += original.length - coords.length

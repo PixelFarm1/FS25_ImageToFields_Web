@@ -68,7 +68,6 @@ export default function App() {
 
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-[9px] bg-secondary flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.20)]">
-        <TractorIcon />
         <span className="text-[13.5px] font-bold text-secondary-foreground tracking-tight">
           FS25 Image to Fields
         </span>
@@ -114,28 +113,5 @@ export default function App() {
 
       </div>
     </div>
-  )
-}
-
-function TractorIcon() {
-  return (
-    <svg width="28" height="22" viewBox="0 0 28 22" fill="none" aria-hidden="true">
-      {/* rear large wheel */}
-      <circle cx="9" cy="16" r="6" fill="#2D6A4F" />
-      <circle cx="9" cy="16" r="3" fill="#1B4332" />
-      <circle cx="9" cy="16" r="1.2" fill="#F9F4EF" />
-      {/* body */}
-      <rect x="7" y="6" width="13" height="9" rx="1.5" fill="#F9F4EF" />
-      {/* cab */}
-      <rect x="14" y="2" width="7" height="7" rx="1" fill="#F9F4EF" />
-      {/* exhaust pipe */}
-      <rect x="20" y="0" width="2" height="4" rx="1" fill="#A08E85" />
-      {/* front small wheel */}
-      <circle cx="22" cy="17" r="4" fill="#2D6A4F" />
-      <circle cx="22" cy="17" r="2" fill="#1B4332" />
-      <circle cx="22" cy="17" r="0.9" fill="#F9F4EF" />
-      {/* hitch arm */}
-      <rect x="1" y="14" width="8" height="2" rx="1" fill="#A08E85" />
-    </svg>
   )
 }
