@@ -67,13 +67,6 @@ export default function ControlsPanel({
           value={distanceThreshold}
           onChange={setDistanceThreshold}
         />
-        <SliderWithInput
-          label="Border expansion"
-          tooltip="Outward expansion of outer field boundary in world units. Only affects the outer loop."
-          min={0} max={10} step={1}
-          value={borderReduction}
-          onChange={setBorderReduction}
-        />
       </section>
 
       {/* Action buttons */}
