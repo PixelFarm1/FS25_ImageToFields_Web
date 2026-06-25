@@ -6,9 +6,8 @@ A free, browser-based tool for converting a field mask image into field coordina
 
 ---
 
-<!-- WEB APP SCREENSHOT PLACEHOLDER -->
-<!-- Replace the line below with: ![Web app screenshot](link-to-your-screenshot) -->
-> 📸 *Add a screenshot of the web app here*
+<img width="2503" height="1299" alt="image" src="https://github.com/user-attachments/assets/fb616bdc-41d5-45b1-a226-037999d94d61" />
+
 
 ---
 
