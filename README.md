@@ -1,107 +1,86 @@
-# FS25_ImageToFields
+# FS25 Image to Fields
 
-> ## Download version 0.1.0 here: [https://github.com/PixelFarm1/FS25_ImageToFields/releases/tag/v0.1.0-experimental]
+A free, browser-based tool for converting a field mask image into field coordinates for Farming Simulator 25. No installation required — runs entirely in your browser.
 
-## German translation below ![image](https://github.com/user-attachments/assets/15acf8fb-474c-4326-a28c-885c138b1e4a)
+**[Try it here → https://pixelfarm1.github.io/FS25_ImageToFields_Web/](https://pixelfarm1.github.io/FS25_ImageToFields_Web/)**
 
+---
 
-#### For any code wizards looking at this... I'm sorry. I have almost no programming experience and a lot of the code is the work of me with the help of chatGPT. The code is most definately not perfectly set up  
+<!-- WEB APP SCREENSHOT PLACEHOLDER -->
+<!-- Replace the line below with: ![Web app screenshot](link-to-your-screenshot) -->
+> 📸 *Add a screenshot of the web app here*
 
-FS25_ImageToFields is a tool for easy creation of field dimensions for FS25. It takes a white on black field mask as input and creates coordinates based on the image. Through some processing it verifies that the coordinates are ordered in a way that allows for complex field shapes. The final processed coordinates are run through the xmlToFields.lua which creates fields and their respective polygons. The GE script also aligns the polygonpoints to the terrain and repaints all fields. All you have to do at the end is run the repaint farmalnds function in the fieldToolkit of GE.
+---
 
-![image](https://github.com/user-attachments/assets/cb449c51-b168-4172-9053-d082ce425be3)
+## What it does
 
-## This is what a proper field mask looks like
-![image](https://github.com/user-attachments/assets/072c551c-b220-487e-8f28-8bebe1ef1e2a)
+Upload a white-on-black field mask image and the tool traces every field boundary, processes the coordinates through a multi-stage pipeline, and produces a ready-to-use XML file. Download everything as a `.zip` that also includes `coordinatesToFields.lua` — a Giants Editor script that reads the XML and places field polygons directly into your map, aligned to the terrain.
 
+## What a correct field mask looks like
+
+![Field mask example](https://github.com/user-attachments/assets/072c551c-b220-487e-8f28-8bebe1ef1e2a)
+
+White areas = fields. Black areas = everything else. Each field must be a distinct, clean white region with no stray pixels and enough separation between neighbouring boundaries for the tool to distinguish them.
+
+---
 
 ## How to use
-1. Make sure that you have a clean field mask. There can be no mistakes in it or you will get a bad result or errors from the program. Common mistakes are: stray white pixels in non-field areas or black pixels in white areas. Too little space between 2 field boundarys (drive an imaginary 1x1 pixel size tractor along all field borders of the mask, if you cannot pass -> fix that area).
 
-2. Run the .exe from the latest release (or main.py if you want more work)
+### 1 — Prepare your field mask
 
-3. Click "Browse" and choose your field mask.
+- All fields must be solid white on a pure black background
+- No stray white pixels outside field areas, no black holes inside them
+- Neighbouring field borders must have at least a 1-pixel gap between them (imagine driving a 1×1 pixel tractor along every border — if it can't pass, widen that gap)
 
-4. Make sure to set the correct DEM size. This is the resolution of your DEM.png in the data folder of your map (-1 pixel). 
+### 2 — Run the tool
 
-5. It is recommended to not change the settings on the first run but to go with the defaults. Change the settings and run again if you want to make any tweaks to the output.
+1. Open the [web app](https://pixelfarm1.github.io/FS25_ImageToFields_Web/) in your browser
+2. Drop your field mask PNG onto the drop zone (or click to browse)
+3. Set the **DEM size** to match your map — this is the resolution of `DEM.png` minus 1 (e.g. a 2049×2049 DEM → choose **2048**)
+4. Set **m / pixel** to match your map scale (default is 2 m/pixel, correct for a standard 2km FS25 map with a 1024px mask)
+5. Choose your preferred area unit — **Hectares** or **Acres**
+6. Leave the processing settings at their defaults for the first run, then adjust if needed:
+   - **Simplification strength** — reduces polygon point count; higher = smoother but less accurate
+   - **Distance threshold** — controls how gaps between points split a field into separate loops
+7. Press **Run** and watch the log panel
 
-6. Press "Run" to start the processing. The log will tell you the output directory.
+### 3 — Inspect the result
 
-7. After the processing is finished, you can press "Visualize fields" to show the final output. Toggle the IDs on and off by pressing "Toggle Field IDs".
+The canvas shows all detected fields with their ID, node count, and area. Pan with click-drag, zoom with the scroll wheel. Press **Toggle field IDs** to hide/show the labels.
 
-8. Go into Giants Editor and make sure that you have a "Fields" group with the correct attributes. Also remove any childs of the Fields transform group.
+### 4 — Download and import into Giants Editor
 
-9. Create a new script in GE and paste the xmlToFields.lua contents to the file. Or just drop the whole .lua in your scripts folder for GE.
+1. Press **Download .zip** — it contains all intermediate XML files plus `coordinatesToFields.lua`
+2. Open your map in Giants Editor
+3. Make sure you have a `Fields` transform group with the correct attributes, and remove any existing children from it
+4. Drop `coordinatesToFields.lua` into your GE scripts folder (or load it as a script)
+5. Use the script's UI to browse to `final_field_coordinates.xml` and press **Import**
+6. The script creates all field polygons, aligns them to the terrain, and repaints the farmland
+7. Run **Repaint Farmlands** from the FieldToolkit to finish
 
-10. Change the filepath at the bottom of the .lua file. It should point to the location of your final_field_coordinates.xml
+---
 
-11. Execute the script. This will clear all existing painted field ground, generate the fields from coordinates, align them to the terrain and then repaint the fields.
+## Suggested workflow for FS22 map conversions
 
-## Suggested workflow for converting FS22 maps
-### Prerequisites: A FS22 map where all fields are painted with terrainDetail (May work if you take the densityMap_ground.gdm from a FS22 savegame too, not tested)
+*Prerequisites: a FS22 map where fields are painted with terrainDetail (the densityMap_ground.gdm)*
 
-1. Convert the densityMap_ground.gdm using the converter at GDN
+1. Convert `densityMap_ground.gdm` using the converter at GDN
+2. Open the converted file in GIMP and add a new layer with white fill
+3. If the image turns all red instead of white: **Image → Mode → RGB**, then recreate the white layer
+4. Set the white layer blending mode to **Dodge** and merge the two layers
+5. Use **Select by Color** (Shift+O) and click one of the bright red field areas to see the selection
+6. Check carefully for stray pixels or gaps — they are easiest to spot in select mode
+7. When the mask looks clean, create a new layer with white fill
+8. Set the blending mode to **HSV Saturation** — field areas will turn white
+9. Merge the layers and repeat step 6 to do a final check
+10. Export the result with these settings:
 
-2. Open the converted file in GIMP and att a new layer with white fill
+![Export settings](https://github.com/user-attachments/assets/b032a1dc-792b-4017-9600-4cf197ea9113)
 
-3. If the image turns all red and not white. Press Image -> Mode -> RGB to change to RGB mode. Then recreate the layer with white fill.
+11. Run the web tool as described above
 
-4. Set the blending mode to "Dodge" and merge the 2 layers
+---
 
-5. Press Select -> By color (Shift + O) and press one of the now bright red areas.
+## License
 
-6. Look for any mistakes like missed pixels, stray pixels etc. They are more easy to spot when in the select mode. 
-
-7. When you are done correcting the image. Create a new layer and with white fill.
-
-8. Change blending mode to "HSV Saturation" and your field areas should turn white.
-
-9. Merge the layers and repeat step 6 to find any mistakes in the mask. 
-
-10. Export with these settings: 
-![image](https://github.com/user-attachments/assets/b032a1dc-792b-4017-9600-4cf197ea9113)
-
-11. Run the FS25_ImageToFields tool according to the instruction above
-
-
-
-# Deutsche Übersetzung
-#### Für alle Code-Zauberer, die sich das hier ansehen ... Es tut mir leid. Ich habe fast keine Programmiererfahrung, und ein Großteil des Codes entstand durch meine Arbeit mit der Hilfe von ChatGPT. Der Code ist mit Sicherheit nicht perfekt strukturiert.
-
-FS25_ImageToFields ist ein Tool zur einfachen Erstellung von Feldgeometrien für FS25. Es nimmt eine Schwarz-Weiß-Feldmaske als Eingabe und erstellt basierend auf dem Bild Koordinaten. Durch eine Reihe von Verarbeitungsschritten wird sichergestellt, dass die Koordinaten in einer Weise geordnet sind, die komplexe Feldformen ermöglicht. Die final verarbeiteten Koordinaten werden durch die xmlToFields.lua-Datei verarbeitet, die Felder und deren jeweilige Polygone erstellt. Das GE-Skript richtet außerdem die Polygonpunkte am Gelände aus und übermalt alle Felder. Alles, was am Ende noch zu tun ist, ist die Funktion "Repaint Farmlands" im FieldToolkit von GE auszuführen.
-
-![image](https://github.com/user-attachments/assets/cb449c51-b168-4172-9053-d082ce425be3)
-
-## So sieht eine korrekte Feldmaske aus.
-![image](https://github.com/user-attachments/assets/072c551c-b220-487e-8f28-8bebe1ef1e2a)
-
-## Anleitung zur Verwendung
-1. Stellen Sie sicher, dass Sie eine saubere Feldmaske haben.
-Es dürfen keine Fehler in der Maske vorhanden sein, da dies zu einem schlechten Ergebnis führen kann. Häufige Fehler sind:
-
-Vereinzelte weiße Pixel in Bereichen, die keine Felder sind.
-Schwarze Pixel in weißen Feldbereichen.
-
-2. Starten Sie die .exe aus der neuesten Version (oder main.py, falls Sie mehr Arbeit investieren möchten).
-
-3. Klicken Sie auf "Browse" und wählen Sie Ihre Feldmaske aus.
-
-4.Stellen Sie sicher, dass Sie die korrekte DEM-Größe einstellen. Dies ist die Auflösung Ihrer DEM.png im Datenordner Ihrer Karte minus 1 Pixel.
-
-5. Ändern Sie beim ersten Durchlauf die Standardeinstellungen nicht. Verwenden Sie die Standardwerte und ändern Sie die Einstellungen erst nach dem ersten Durchlauf, wenn Sie Anpassungen am Ergebnis vornehmen möchten.
-
-6. Drücken Sie auf "Run", um die Verarbeitung zu starten. Der Fortschritt wird im Protokoll angezeigt, und das Ausgabeverzeichnis wird dort angegeben.
-
-7. Nach Abschluss der Verarbeitung können Sie auf "Visualize fields" klicken, um das endgültige Ergebnis anzuzeigen. Mit der Schaltfläche "Toggle Field IDs" können Sie die Feld-IDs ein- oder ausblenden.
-
-8. Öffnen Sie den Giants Editor (GE) und stellen Sie sicher, dass Sie eine "Fields"-Gruppe mit den richtigen Attributen haben. Entfernen Sie außerdem alle untergeordneten Objekte der "Fields"-Transformationsgruppe.
-
-9. Erstellen Sie ein neues Skript in GE und fügen Sie den Inhalt von xmlToFields.lua in die Datei ein. Alternativ können Sie die .lua-Datei in den Skriptordner von GE legen.
-
-10. Passen Sie den Dateipfad am Ende der .lua-Datei an. Der Pfad sollte auf die final_field_coordinates.xml zeigen.
-
-11. Führen Sie das Skript aus.Es wird alle vorhandenen gemalten Feldflächen löschen, die Felder aus den Koordinaten generieren, sie an das Gelände anpassen und die Felder neu bemalen.
-
-
-
+See [LICENSE](LICENSE).
