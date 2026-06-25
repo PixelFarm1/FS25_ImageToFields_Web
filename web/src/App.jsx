@@ -70,12 +70,12 @@ export default function App() {
 
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-[9px] bg-secondary flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.20)]">
-        <span className="text-[13.5px] font-bold text-secondary-foreground tracking-tight">
+        <span className="text-[14px] font-bold text-secondary-foreground tracking-tight">
           FS25 Image to Fields
         </span>
         <Badge
           variant="outline"
-          className="ml-1 border-[#3D8B67] text-[#52B788] bg-transparent text-[11px] px-2"
+          className="ml-1 border-[#3D8B67] text-[#52B788] bg-transparent text-[14px] px-2"
         >
           v0.2.0 - web
         </Badge>
@@ -85,12 +85,12 @@ export default function App() {
       <div className="flex flex-1 min-h-0">
 
         {/* Log panel */}
-        <div className="w-[175px] flex-shrink-0 flex flex-col min-h-0 border-r border-border">
+        <div className="w-1/4 flex flex-col min-h-0 border-r border-border">
           <LogPanel logs={logs} />
         </div>
 
         {/* Controls panel */}
-        <div className="w-[242px] flex-shrink-0 flex flex-col min-h-0 border-r border-border">
+        <div className="w-1/4 flex flex-col min-h-0 border-r border-border">
           <ControlsPanel
             file={file} onFile={setFile}
             demSize={demSize} setDemSize={setDemSize}
@@ -108,7 +108,7 @@ export default function App() {
         </div>
 
         {/* Canvas panel */}
-        <div className="flex-1 min-w-0 flex flex-col min-h-0">
+        <div className="w-1/2 flex flex-col min-h-0">
           <FieldCanvas
             fields={fields}
             showLabels={showLabels}

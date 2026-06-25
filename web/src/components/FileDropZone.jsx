@@ -49,8 +49,8 @@ export default function FileDropZone({ file, onFile }) {
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
       {file
-        ? <p className="text-[12px] text-primary font-semibold truncate px-1">{file.name}</p>
-        : <p className="text-[12px] text-muted-foreground">Drop PNG or click to browse</p>
+        ? <p className="text-[14px] text-primary font-semibold truncate px-1">{file.name}</p>
+        : <p className="text-[14px] text-muted-foreground">Drop PNG or click to browse</p>
       }
     </div>
   )

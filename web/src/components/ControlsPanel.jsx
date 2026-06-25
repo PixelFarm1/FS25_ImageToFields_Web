@@ -45,12 +45,12 @@ export default function ControlsPanel({
           DEM size
         </SectionLabel>
         <Select value={String(demSize)} onValueChange={v => setDemSize(parseInt(v))}>
-          <SelectTrigger className="w-full text-[13px]">
+          <SelectTrigger className="w-full text-[14px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {[1024, 2048, 4096, 8192].map(v => (
-              <SelectItem key={v} value={String(v)} className="text-[13px]">{v}</SelectItem>
+              <SelectItem key={v} value={String(v)} className="text-[14px]">{v}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -84,14 +84,14 @@ export default function ControlsPanel({
 
         {/* Meters per pixel */}
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[12px] text-foreground flex-1">m / pixel</span>
+          <span className="text-[14px] text-foreground flex-1">m / pixel</span>
           <input
             type="number"
             min="0.01"
             step="0.1"
             value={metersPerPixel}
             onChange={handleMetersPerPixel}
-            className="w-[72px] text-[12px] text-right border border-input rounded px-2 py-[3px] bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-[72px] text-[14px] text-right border border-input rounded px-2 py-[3px] bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -105,7 +105,7 @@ export default function ControlsPanel({
               key={key}
               onClick={() => setAreaUnit(key)}
               className={[
-                'flex-1 text-[12px] py-[4px] rounded border transition-colors',
+                'flex-1 text-[14px] py-[4px] rounded border transition-colors',
                 areaUnit === key
                   ? 'bg-primary text-primary-foreground border-primary font-medium'
                   : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground',
@@ -123,11 +123,11 @@ export default function ControlsPanel({
           {isRunning ? <><SpinIcon /> Running...</> : <><PlayIcon /> Run</>}
         </Button>
         <Button onClick={onToggleLabels} disabled={!hasResult}
-          variant="outline" size="sm" className="w-full text-[13px]">
+          variant="outline" size="sm" className="w-full text-[14px]">
           <TagIcon /> Toggle field IDs
         </Button>
         <Button onClick={downloadZip} disabled={!zipBuffer}
-          variant="secondary" size="sm" className="w-full text-[13px]">
+          variant="secondary" size="sm" className="w-full text-[14px]">
           <DownloadIcon /> Download .zip
         </Button>
       </div>
@@ -138,7 +138,7 @@ export default function ControlsPanel({
 
 function SectionLabel({ children, tooltip }) {
   return (
-    <p className="text-[11px] text-muted-foreground uppercase tracking-widest mb-[6px] font-medium"
+    <p className="text-[14px] text-muted-foreground uppercase tracking-widest mb-[6px] font-medium"
        title={tooltip}>
       {children}
     </p>

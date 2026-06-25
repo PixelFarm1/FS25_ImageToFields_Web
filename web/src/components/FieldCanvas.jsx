@@ -223,7 +223,7 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex justify-between items-center px-3 py-[6px] bg-card border-b border-border text-[11px] uppercase tracking-widest">
+      <div className="flex justify-between items-center px-3 py-[6px] bg-card border-b border-border text-[14px] uppercase tracking-widest">
         <span className="text-muted-foreground">Field visualisation</span>
         {fields && fields.length > 0 &&
           <span className="text-primary font-semibold">
