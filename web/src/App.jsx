@@ -10,6 +10,8 @@ export default function App() {
   const [simplificationStrength, setSimplificationStrength] = useState(0.2)
   const [distanceThreshold,      setDistanceThreshold]      = useState(10)
   const [borderReduction,        setBorderReduction]        = useState(0)
+  const [metersPerPixel,         setMetersPerPixel]         = useState(2)
+  const [areaUnit,               setAreaUnit]               = useState('ha')
 
   const [logs,       setLogs]       = useState([])
   const [isRunning,  setIsRunning]  = useState(false)
@@ -56,7 +58,7 @@ export default function App() {
 
     const imageBuffer = await file.arrayBuffer()
     workerRef.current.postMessage(
-      { type: 'RUN', payload: { imageBuffer, demSize, simplificationStrength, distanceThreshold, borderReduction } },
+      { type: 'RUN', payload: { imageBuffer, demSize, simplificationStrength, distanceThreshold, borderReduction, metersPerPixel } },
       [imageBuffer]
     )
   }
@@ -95,6 +97,8 @@ export default function App() {
             simplificationStrength={simplificationStrength} setSimplificationStrength={setSimplificationStrength}
             distanceThreshold={distanceThreshold} setDistanceThreshold={setDistanceThreshold}
             borderReduction={borderReduction} setBorderReduction={setBorderReduction}
+            metersPerPixel={metersPerPixel} setMetersPerPixel={setMetersPerPixel}
+            areaUnit={areaUnit} setAreaUnit={setAreaUnit}
             onRun={handleRun}
             onToggleLabels={handleToggleLabels}
             isRunning={isRunning}
@@ -108,6 +112,7 @@ export default function App() {
           <FieldCanvas
             fields={fields}
             showLabels={showLabels}
+            areaUnit={areaUnit}
           />
         </div>
 

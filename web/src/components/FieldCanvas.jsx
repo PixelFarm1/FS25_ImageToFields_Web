@@ -1,22 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react'
 
-// Shoelace formula -- polygon area in world-unit squared
-function polyArea(coordinates, centerX, centerY) {
-  const n = coordinates.length
-  if (n < 3) return 0
-  let area = 0
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n
-    area += (centerX + coordinates[i].x) * (centerY + coordinates[j].y)
-    area -= (centerX + coordinates[j].x) * (centerY + coordinates[i].y)
+/**
+ * Format a pre-computed area (m²) into the chosen display unit.
+ */
+function fmtArea(areaM2, unit) {
+  if (unit === 'acres') {
+    const acres = areaM2 / 10000 * 2.47105
+    return acres >= 10 ? acres.toFixed(1) + ' ac' : acres.toFixed(2) + ' ac'
   }
-  return Math.abs(area) / 2
-}
-
-function fmtArea(a) {
-  if (a >= 1000000) return (a / 1000000).toFixed(2) + 'M u²'
-  if (a >= 1000)    return (a / 1000).toFixed(1)    + 'k u²'
-  return a.toFixed(0) + ' u²'
+  // hectares (default)
+  const ha = areaM2 / 10000
+  return ha >= 10 ? ha.toFixed(1) + ' ha' : ha.toFixed(2) + ' ha'
 }
 
 // Watermelon UI palette
@@ -27,10 +21,10 @@ const BG_COLOR   = '#FDF8F5'
 const LABEL_BG   = 'rgba(27,67,50,0.88)'
 const LABEL_TEXT = '#F0FAF5'
 
-export default function FieldCanvas({ fields, showLabels }) {
+export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
-    fields: [], showLabels: true,
+    fields: [], showLabels: true, areaUnit: 'ha',
     transform: { tx: 0, ty: 0, scale: 1 },
     dragging: false, lastX: 0, lastY: 0,
   })
@@ -39,7 +33,7 @@ export default function FieldCanvas({ fields, showLabels }) {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    const { transform, fields, showLabels } = stateRef.current
+    const { transform, fields, showLabels, areaUnit } = stateRef.current
     const { tx, ty, scale } = transform
     const W = canvas.width, H = canvas.height
 
@@ -95,9 +89,9 @@ export default function FieldCanvas({ fields, showLabels }) {
       // Two-line label: "ID X" + "N nodes · area"
       const [lx, ly] = worldToCanvas(field.centerX, field.centerY)
       const nodeCount = field.coordinates.length
-      const area      = polyArea(field.coordinates, field.centerX, field.centerY)
+      const areaStr   = field.areaM2 != null ? fmtArea(field.areaM2, areaUnit) : ''
       const line1     = 'ID ' + field.id
-      const line2     = nodeCount + ' nodes · ' + fmtArea(area)
+      const line2     = nodeCount + ' nodes · ' + areaStr
 
       const fs1 = Math.max(9,   Math.min(13, scale * 3))
       const fs2 = Math.max(7.5, fs1 - 1.5)
@@ -145,14 +139,15 @@ export default function FieldCanvas({ fields, showLabels }) {
   }, [])
 
   useEffect(() => {
-    stateRef.current.fields = fields ?? []
+    stateRef.current.fields     = fields ?? []
     stateRef.current.showLabels = showLabels
+    stateRef.current.areaUnit   = areaUnit
     if (fields && fields.length > 0) {
       fitToFields(fields)
     } else {
       draw()
     }
-  }, [fields, showLabels, draw])
+  }, [fields, showLabels, areaUnit, draw])
 
   function fitToFields(flds) {
     const canvas = canvasRef.current

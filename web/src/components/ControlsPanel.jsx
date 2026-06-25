@@ -12,6 +12,8 @@ export default function ControlsPanel({
   simplificationStrength, setSimplificationStrength,
   distanceThreshold, setDistanceThreshold,
   borderReduction, setBorderReduction,
+  metersPerPixel, setMetersPerPixel,
+  areaUnit, setAreaUnit,
   onRun, onToggleLabels,
   isRunning, hasResult, zipBuffer,
 }) {
@@ -21,6 +23,11 @@ export default function ControlsPanel({
     const a = document.createElement('a')
     a.href = url; a.download = 'fs25_fields_output.zip'; a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  function handleMetersPerPixel(e) {
+    const v = parseFloat(e.target.value)
+    if (!isNaN(v) && v > 0) setMetersPerPixel(v)
   }
 
   return (
@@ -67,6 +74,47 @@ export default function ControlsPanel({
           value={distanceThreshold}
           onChange={setDistanceThreshold}
         />
+      </section>
+
+      {/* Scale */}
+      <section className="rounded-lg border border-border bg-card px-3 pt-3 pb-3">
+        <SectionLabel tooltip="Set the real-world scale of your map image and preferred area unit">
+          Scale &amp; units
+        </SectionLabel>
+
+        {/* Meters per pixel */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[12px] text-foreground flex-1">m / pixel</span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.1"
+            value={metersPerPixel}
+            onChange={handleMetersPerPixel}
+            className="w-[72px] text-[12px] text-right border border-input rounded px-2 py-[3px] bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+
+        {/* Area unit toggle */}
+        <div className="flex gap-1">
+          {[
+            { key: 'ha',    label: 'Hectares' },
+            { key: 'acres', label: 'Acres'    },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setAreaUnit(key)}
+              className={[
+                'flex-1 text-[12px] py-[4px] rounded border transition-colors',
+                areaUnit === key
+                  ? 'bg-primary text-primary-foreground border-primary font-medium'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Action buttons */}
