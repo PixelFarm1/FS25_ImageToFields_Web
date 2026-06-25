@@ -1,0 +1,11 @@
+# Python desktop tool — not needed for GitHub Pages deployment
+main.py
+scripts/
+
+# Development notes
+REBUILD.md
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
