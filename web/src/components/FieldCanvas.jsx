@@ -70,7 +70,7 @@ export default function FieldCanvas({ fields, showLabels }) {
     }
 
     function worldToCanvas(wx, wy) {
-      return [tx + wx * scale, ty + (-wy) * scale]
+      return [tx + wx * scale, ty + wy * scale]
     }
 
     fields.forEach(field => {
@@ -172,7 +172,7 @@ export default function FieldCanvas({ fields, showLabels }) {
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
     stateRef.current.transform = {
       tx: W / 2 - cx * scale,
-      ty: H / 2 + cy * scale,
+      ty: H / 2 - cy * scale,
       scale,
     }
     draw()

@@ -11,6 +11,7 @@ import JSZip from 'jszip'
 import { stage1, stage2 } from './pipeline/imageProcessing.js'
 import { stage3, stage4 } from './pipeline/fieldLoops.js'
 import { stage5, stage6 } from './pipeline/fieldMerge.js'
+import luaScript from '../../coordinatesToFields.lua?raw'
 
 function log(msg) {
   self.postMessage({ type: 'LOG', message: msg })
@@ -48,6 +49,7 @@ self.onmessage = async (e) => {
     zip.file('simplified_field_loops.xml', s4.xml)
     zip.file('field_coordinates_marked.xml', s5.xml)
     zip.file('final_field_coordinates.xml',  s6.xml)
+    zip.file('coordinatesToFields.lua',    luaScript)
 
     const zipBlob = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' })
     log('Done! Click "Download .zip" to save all output files.')
