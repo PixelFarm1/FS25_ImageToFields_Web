@@ -6,7 +6,7 @@ A free, browser-based tool for converting a field mask image into field coordina
 
 ---
 
-<img width="2504" height="1298" alt="image" src="https://github.com/user-attachments/assets/80fe0bfd-ea04-4856-ad5a-61f8236d3c2d" />
+<img width="2503" height="1299" alt="image" src="https://github.com/user-attachments/assets/fb616bdc-41d5-45b1-a226-037999d94d61" />
 
 
 ---
