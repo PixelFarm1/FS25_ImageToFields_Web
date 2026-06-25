@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { tpl } from '../i18n.js'
 
 /**
  * Format a pre-computed area (m²) into the chosen display unit.
@@ -8,7 +9,6 @@ function fmtArea(areaM2, unit) {
     const acres = areaM2 / 10000 * 2.47105
     return acres >= 10 ? acres.toFixed(1) + ' ac' : acres.toFixed(2) + ' ac'
   }
-  // hectares (default)
   const ha = areaM2 / 10000
   return ha >= 10 ? ha.toFixed(1) + ' ha' : ha.toFixed(2) + ' ha'
 }
@@ -21,10 +21,10 @@ const BG_COLOR   = '#FDF8F5'
 const LABEL_BG   = 'rgba(27,67,50,0.88)'
 const LABEL_TEXT = '#F0FAF5'
 
-export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
+export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha', t }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
-    fields: [], showLabels: true, areaUnit: 'ha',
+    fields: [], showLabels: true, areaUnit: 'ha', t: null,
     transform: { tx: 0, ty: 0, scale: 1 },
     dragging: false, lastX: 0, lastY: 0,
   })
@@ -33,7 +33,7 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    const { transform, fields, showLabels, areaUnit } = stateRef.current
+    const { transform, fields, showLabels, areaUnit, t } = stateRef.current
     const { tx, ty, scale } = transform
     const W = canvas.width, H = canvas.height
 
@@ -59,7 +59,7 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
       ctx.font = '13px "Inter Variable", sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('Run the pipeline to visualise fields', W / 2, H / 2)
+      ctx.fillText(t ? t.runToVisualize : '', W / 2, H / 2)
       return
     }
 
@@ -86,7 +86,6 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
 
       if (!showLabels) return
 
-      // Two-line label: "ID X" + "N nodes · area"
       const [lx, ly] = worldToCanvas(field.centerX, field.centerY)
       const nodeCount = field.coordinates.length
       const areaStr   = field.areaM2 != null ? fmtArea(field.areaM2, areaUnit) : ''
@@ -142,12 +141,13 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
     stateRef.current.fields     = fields ?? []
     stateRef.current.showLabels = showLabels
     stateRef.current.areaUnit   = areaUnit
+    stateRef.current.t          = t
     if (fields && fields.length > 0) {
       fitToFields(fields)
     } else {
       draw()
     }
-  }, [fields, showLabels, areaUnit, draw])
+  }, [fields, showLabels, areaUnit, t, draw])
 
   function fitToFields(flds) {
     const canvas = canvasRef.current
@@ -201,7 +201,6 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
   }
   function onMouseUp() { stateRef.current.dragging = false }
 
-  // Attach wheel with passive:false so preventDefault works
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -221,14 +220,17 @@ export default function FieldCanvas({ fields, showLabels, areaUnit = 'ha' }) {
     return () => canvas.removeEventListener('wheel', handleWheel)
   }, [draw])
 
+  // Translated fields-detected string
+  const detectedStr = fields && fields.length > 0 && t
+    ? tpl(fields.length === 1 ? t.fieldDetected : t.fieldsDetected, { n: fields.length })
+    : null
+
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="flex justify-between items-center px-3 py-[6px] bg-card border-b border-border text-[14px] uppercase tracking-widest">
-        <span className="text-muted-foreground">Field visualisation</span>
-        {fields && fields.length > 0 &&
-          <span className="text-primary font-semibold">
-            {fields.length} field{fields.length !== 1 ? 's' : ''} detected
-          </span>
+        <span className="text-muted-foreground">{t ? t.fieldVisualisation : ''}</span>
+        {detectedStr &&
+          <span className="text-primary font-semibold">{detectedStr}</span>
         }
       </div>
       <canvas

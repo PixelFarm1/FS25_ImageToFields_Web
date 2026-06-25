@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Badge } from './ui/badge.jsx'
 
-export default function LogPanel({ logs }) {
+export default function LogPanel({ logs, t }) {
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export default function LogPanel({ logs }) {
       {/* Section header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <Badge variant="default" className="text-[14px] tracking-widest uppercase rounded-sm">
-          Activity
+          {t.activity}
         </Badge>
         {logs.length > 0 && (
           <span className="text-[14px] text-muted-foreground">{logs.length}</span>
@@ -25,7 +25,7 @@ export default function LogPanel({ logs }) {
       <div className="flex-1 mx-2 mb-2 rounded-lg border border-border bg-card overflow-y-auto">
         {logs.length === 0 ? (
           <p className="text-[14px] text-muted-foreground text-center mt-6 px-2 leading-relaxed">
-            Run the pipeline to see activity here.
+            {t.logEmpty}
           </p>
         ) : (
           <div className="p-2 font-mono text-[14px] leading-[1.85] space-y-px">

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-export default function FileDropZone({ file, onFile }) {
+export default function FileDropZone({ file, onFile, t }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
 
@@ -50,7 +50,7 @@ export default function FileDropZone({ file, onFile }) {
       </svg>
       {file
         ? <p className="text-[14px] text-primary font-semibold truncate px-1">{file.name}</p>
-        : <p className="text-[14px] text-muted-foreground">Drop PNG or click to browse</p>
+        : <p className="text-[14px] text-muted-foreground">{t.dropZone}</p>
       }
     </div>
   )

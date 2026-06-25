@@ -3,6 +3,7 @@ import LogPanel from './components/LogPanel.jsx'
 import ControlsPanel from './components/ControlsPanel.jsx'
 import FieldCanvas from './components/FieldCanvas.jsx'
 import { Badge } from './components/ui/badge.jsx'
+import { translations } from './i18n.js'
 
 export default function App() {
   const [file,                   setFile]                   = useState(null)
@@ -12,6 +13,7 @@ export default function App() {
   const [borderReduction,        setBorderReduction]        = useState(0)
   const [metersPerPixel,         setMetersPerPixel]         = useState(2)
   const [areaUnit,               setAreaUnit]               = useState('ha')
+  const [lang,                   setLang]                   = useState('en')
 
   const [logs,       setLogs]       = useState([])
   const [isRunning,  setIsRunning]  = useState(false)
@@ -20,6 +22,7 @@ export default function App() {
   const [zipBuffer,  setZipBuffer]  = useState(null)
 
   const workerRef = useRef(null)
+  const t = translations[lang]
 
   const appendLog = useCallback((msg) => setLogs(prev => [...prev, msg]), [])
 
@@ -71,7 +74,7 @@ export default function App() {
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-[9px] bg-secondary flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.20)]">
         <span className="text-[14px] font-bold text-secondary-foreground tracking-tight">
-          FS25 Image to Fields
+          {t.appTitle}
         </span>
         <Badge
           variant="outline"
@@ -79,6 +82,24 @@ export default function App() {
         >
           v0.2.0 - web
         </Badge>
+
+        {/* Language toggle */}
+        <div className="ml-auto flex gap-1">
+          {['en', 'de'].map(l => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={[
+                'text-[13px] font-medium px-2 py-[2px] rounded border transition-colors uppercase tracking-wide',
+                lang === l
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground',
+              ].join(' ')}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* Body - three columns */}
@@ -86,7 +107,7 @@ export default function App() {
 
         {/* Log panel */}
         <div className="w-1/4 flex flex-col min-h-0 border-r border-border">
-          <LogPanel logs={logs} />
+          <LogPanel logs={logs} t={t} />
         </div>
 
         {/* Controls panel */}
@@ -104,6 +125,7 @@ export default function App() {
             isRunning={isRunning}
             hasResult={!!fields}
             zipBuffer={zipBuffer}
+            t={t}
           />
         </div>
 
@@ -113,6 +135,7 @@ export default function App() {
             fields={fields}
             showLabels={showLabels}
             areaUnit={areaUnit}
+            t={t}
           />
         </div>
 

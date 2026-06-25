@@ -16,6 +16,7 @@ export default function ControlsPanel({
   areaUnit, setAreaUnit,
   onRun, onToggleLabels,
   isRunning, hasResult, zipBuffer,
+  t,
 }) {
   function downloadZip() {
     if (!zipBuffer) return
@@ -35,14 +36,14 @@ export default function ControlsPanel({
 
       {/* Field mask PNG */}
       <section>
-        <SectionLabel>Field mask PNG</SectionLabel>
-        <FileDropZone file={file} onFile={onFile} />
+        <SectionLabel>{t.fieldMaskPng}</SectionLabel>
+        <FileDropZone file={file} onFile={onFile} t={t} />
       </section>
 
       {/* DEM size */}
       <section>
-        <SectionLabel tooltip="Resolution of your DEM.png minus 1 pixel (e.g. 2049x2049 -> choose 2048)">
-          DEM size
+        <SectionLabel tooltip={t.demSizeTooltip}>
+          {t.demSize}
         </SectionLabel>
         <Select value={String(demSize)} onValueChange={v => setDemSize(parseInt(v))}>
           <SelectTrigger className="w-full text-[14px]">
@@ -58,33 +59,33 @@ export default function ControlsPanel({
 
       {/* Processing settings */}
       <section className="rounded-lg border border-border bg-card px-3 pt-3 pb-1">
-        <SectionLabel>Processing settings</SectionLabel>
+        <SectionLabel>{t.processingSettings}</SectionLabel>
         <SliderWithInput
-          label="Simplification strength"
-          tooltip="Controls the Ramer-Douglas-Peucker tolerance. Higher = fewer polygon points."
+          label={t.simplificationStrength}
+          tooltip={t.simplificationTooltip}
           min={0} max={1} step={0.1}
           value={simplificationStrength}
           onChange={setSimplificationStrength}
           decimals={1}
         />
         <SliderWithInput
-          label="Distance threshold"
-          tooltip="Maximum gap between consecutive points before they are split into separate loops."
+          label={t.distanceThreshold}
+          tooltip={t.distanceTooltip}
           min={0} max={20} step={1}
           value={distanceThreshold}
           onChange={setDistanceThreshold}
         />
       </section>
 
-      {/* Scale */}
+      {/* Scale & units */}
       <section className="rounded-lg border border-border bg-card px-3 pt-3 pb-3">
-        <SectionLabel tooltip="Set the real-world scale of your map image and preferred area unit">
-          Scale &amp; units
+        <SectionLabel tooltip={t.scaleTooltip}>
+          {t.scaleUnits}
         </SectionLabel>
 
         {/* Meters per pixel */}
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[14px] text-foreground flex-1">m / pixel</span>
+          <span className="text-[14px] text-foreground flex-1">{t.metersPerPixel}</span>
           <input
             type="number"
             min="0.01"
@@ -98,8 +99,8 @@ export default function ControlsPanel({
         {/* Area unit toggle */}
         <div className="flex gap-1">
           {[
-            { key: 'ha',    label: 'Hectares' },
-            { key: 'acres', label: 'Acres'    },
+            { key: 'ha',    label: t.hectares },
+            { key: 'acres', label: t.acres    },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -120,15 +121,15 @@ export default function ControlsPanel({
       {/* Action buttons */}
       <div className="mt-auto flex flex-col gap-1.5">
         <Button onClick={onRun} disabled={!file || isRunning} className="w-full">
-          {isRunning ? <><SpinIcon /> Running...</> : <><PlayIcon /> Run</>}
+          {isRunning ? <><SpinIcon /> {t.running}</> : <><PlayIcon /> {t.run}</>}
         </Button>
         <Button onClick={onToggleLabels} disabled={!hasResult}
           variant="outline" size="sm" className="w-full text-[14px]">
-          <TagIcon /> Toggle field IDs
+          <TagIcon /> {t.toggleFieldIDs}
         </Button>
         <Button onClick={downloadZip} disabled={!zipBuffer}
           variant="secondary" size="sm" className="w-full text-[14px]">
-          <DownloadIcon /> Download .zip
+          <DownloadIcon /> {t.downloadZip}
         </Button>
       </div>
 
