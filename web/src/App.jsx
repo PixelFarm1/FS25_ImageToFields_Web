@@ -58,6 +58,7 @@ export default function App() {
     setZipBuffer(null)
     setLogs([])
     appendLog('Starting the tool...')
+    window.gtag?.('event', 'pipeline_started')
 
     const imageBuffer = await file.arrayBuffer()
     workerRef.current.postMessage(

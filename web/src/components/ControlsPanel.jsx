@@ -20,6 +20,7 @@ export default function ControlsPanel({
 }) {
   function downloadZip() {
     if (!zipBuffer) return
+    window.gtag?.('event', 'zip_downloaded')
     const url = URL.createObjectURL(new Blob([zipBuffer], { type: 'application/zip' }))
     const a = document.createElement('a')
     a.href = url; a.download = 'fs25_fields_output.zip'; a.click()
