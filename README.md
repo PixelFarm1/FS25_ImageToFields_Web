@@ -79,6 +79,21 @@ The canvas shows all detected fields with their ID, node count, and area. Pan wi
 
 ---
 
+## Privacy
+
+**Your images never leave your computer.** The entire pipeline runs in your browser
+via a Web Worker — there is no backend and nothing is uploaded.
+
+The site uses Google Analytics 4 to count visits, but it is **opt-in**: no analytics
+script is loaded and no cookies are set until you accept the banner. Declining sets
+nothing at all, and you can change or withdraw your choice at any time via the
+**Privacy** link in the header. The Inter typeface is self-hosted, so no request is
+made to Google Fonts either.
+
+The site is hosted on GitHub Pages, which keeps standard server access logs.
+
+---
+
 ## License
 
 See [LICENSE](LICENSE).

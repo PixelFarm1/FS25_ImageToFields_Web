@@ -3,7 +3,9 @@ import LogPanel from './components/LogPanel.jsx'
 import ControlsPanel from './components/ControlsPanel.jsx'
 import FieldCanvas from './components/FieldCanvas.jsx'
 import { Badge } from './components/ui/badge.jsx'
+import PrivacyNotice from './components/PrivacyNotice.jsx'
 import { translations } from './i18n.js'
+import { trackEvent } from './analytics.js'
 
 export default function App() {
   const [file,                   setFile]                   = useState(null)
@@ -14,6 +16,7 @@ export default function App() {
   const [metersPerPixel,         setMetersPerPixel]         = useState(2)
   const [areaUnit,               setAreaUnit]               = useState('ha')
   const [lang,                   setLang]                   = useState('en')
+  const [privacyOpen,            setPrivacyOpen]            = useState(false)
 
   const [logs,       setLogs]       = useState([])
   const [isRunning,  setIsRunning]  = useState(false)
@@ -58,7 +61,7 @@ export default function App() {
     setZipBuffer(null)
     setLogs([])
     appendLog('Starting the tool...')
-    window.gtag?.('event', 'pipeline_started')
+    trackEvent('pipeline_started')
 
     const imageBuffer = await file.arrayBuffer()
     workerRef.current.postMessage(
@@ -84,8 +87,15 @@ export default function App() {
           v0.2.0 - web
         </Badge>
 
+        <button
+          onClick={() => setPrivacyOpen(true)}
+          className="ml-auto text-[13px] text-secondary-foreground/80 underline underline-offset-2 hover:text-secondary-foreground"
+        >
+          {t.privacy}
+        </button>
+
         {/* Language toggle */}
-        <div className="ml-auto flex gap-1">
+        <div className="flex gap-1">
           {['en', 'de'].map(l => (
             <button
               key={l}
@@ -141,6 +151,8 @@ export default function App() {
         </div>
 
       </div>
+
+      <PrivacyNotice t={t} open={privacyOpen} onClose={setPrivacyOpen} />
     </div>
   )
 }

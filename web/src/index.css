@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+/* Self-hosted Inter (no request to Google's CDN, so visitor IPs are never
+   transmitted to a third party). Bundled by Vite from node_modules. */
+@import '@fontsource-variable/inter/opsz.css';
+@import '@fontsource-variable/inter/opsz-italic.css';
 
 @tailwind base;
 @tailwind components;
