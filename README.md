@@ -53,7 +53,7 @@ The canvas shows all detected fields with their ID, node count, and area. Pan wi
 2. Open your map in Giants Editor
 3. Make sure you have a `Fields` transform group with the correct attributes, and remove any existing children from it
 4. Drop `coordinatesToFields.lua` into your GE scripts folder (or load it as a script)
-5. At the bottom of the script, add the path to your `final_field_coordinates.xml` and save. Then run the script...
+5. Run the script — a file dialog opens, select your `final_field_coordinates.xml`
 6. The script creates all field polygons, aligns them to the terrain, and repaints the cultivated ground
 
 ---
