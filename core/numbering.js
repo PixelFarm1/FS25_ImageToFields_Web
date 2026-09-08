@@ -16,13 +16,98 @@
  */
 import { bbox, area } from './geom.js'
 
-export const NUMBERING_ORDERS = ['rows', 'columns', 'area', 'source']
+export const NUMBERING_ORDERS = ['rows', 'columns', 'chunks', 'radial', 'area', 'source']
 
 export const NUMBERING_LABELS = {
   rows: 'Top-left to bottom-right',
   columns: 'Top-left, down each column',
+  chunks: 'In chunks, top to bottom',
+  radial: 'Outward from a corner',
   area: 'Largest field first',
   source: 'Detection order',
+}
+
+export const CHUNK_COUNT = { min: 2, max: 20, default: 4 }
+export const RADIAL_STEPS = { min: 2, max: 20, default: 6 }
+
+export const RADIAL_CORNERS = ['nw', 'ne', 'sw', 'se']
+export const RADIAL_CORNER_LABELS = {
+  nw: 'Top-left', ne: 'Top-right', sw: 'Bottom-left', se: 'Bottom-right',
+}
+
+const clamp = (v, { min, max, default: dflt }) =>
+  Number.isFinite(v) ? Math.max(min, Math.min(max, Math.round(v))) : dflt
+
+/** Extent of the fields themselves — chunks and rings are laid out over this. */
+function fieldExtent(fields) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const f of fields) {
+    if (f.centerX < minX) minX = f.centerX
+    if (f.centerX > maxX) maxX = f.centerX
+    if (f.centerY < minY) minY = f.centerY
+    if (f.centerY > maxY) maxY = f.centerY
+  }
+  return { minX, maxX, minY, maxY }
+}
+
+/**
+ * Equal horizontal bands, numbered top band first, each band read top-left to
+ * bottom-right. Unlike `rows`, the band count is the user's choice rather than
+ * derived from field sizes, so the numbering can be lined up with however the
+ * map is actually worked on.
+ *
+ * The bands span the area the fields occupy rather than the whole DEM, so every
+ * chunk holds fields instead of some coming out empty when the fields sit in
+ * the middle of the map.
+ */
+function chunked(fields, count) {
+  const { minY, maxY } = fieldExtent(fields)
+  const span = maxY - minY || 1
+
+  const buckets = bucketise(fields, count, f => (f.centerY - minY) / span)
+  return buckets.flatMap(band => banded(band, 'rows'))
+}
+
+/**
+ * Drop each field into one of `count` buckets by a 0..1 position.
+ *
+ * Computing the index per field, rather than filtering the list once per
+ * bucket with a lo/hi range, is what makes this total: comparing against
+ * recomputed edges leaves a field exactly on the outermost edge able to fail
+ * every test at once — `max * count / count` need not come back as `max` in
+ * floating point — and it silently vanishes from the numbering.
+ */
+function bucketise(fields, count, position) {
+  const buckets = Array.from({ length: count }, () => [])
+  for (const f of fields) {
+    const t = position(f)
+    const i = Math.min(count - 1, Math.max(0, Math.floor(t * count)))
+    buckets[i].push(f)
+  }
+  return buckets
+}
+
+/**
+ * Rings growing out of one corner.
+ *
+ * Fields are grouped by distance from the corner into `steps` equal rings, and
+ * each ring is then swept by angle. The sweep is what gives the step count any
+ * effect: ordering a ring by distance instead would just reproduce a plain
+ * distance sort, and the number of steps would change nothing.
+ */
+function radial(fields, corner, steps) {
+  const { minX, maxX, minY, maxY } = fieldExtent(fields)
+  // World y grows downward, so 'n' is the top of the map.
+  const ox = corner[1] === 'w' ? minX : maxX
+  const oy = corner[0] === 'n' ? minY : maxY
+
+  const distance = f => Math.hypot(f.centerX - ox, f.centerY - oy)
+  const angle = f => Math.atan2(f.centerY - oy, f.centerX - ox)
+
+  const furthest = Math.max(...fields.map(distance)) || 1
+
+  return bucketise(fields, steps, f => distance(f) / furthest)
+    .flatMap(ring => ring.sort((a, b) => angle(a) - angle(b)))
 }
 
 /**
@@ -89,16 +174,31 @@ function banded(fields, order) {
  * in the exported XML are all the same numbers.
  *
  * @param {Array} fields  fields carrying centerX / centerY / outer
- * @param {'rows'|'columns'|'area'|'source'} order
+ * @param {{numbering?: string, chunkCount?: number,
+ *          radialCorner?: string, radialSteps?: number}} options
  */
-export function renumberFields(fields, order = 'rows', log = () => {}) {
-  if (!NUMBERING_ORDERS.includes(order)) order = 'rows'
+export function renumberFields(fields, options = {}, log = () => {}) {
+  const order = NUMBERING_ORDERS.includes(options.numbering) ? options.numbering : 'rows'
   if (order === 'source' || fields.length < 2) return fields
 
-  const sorted = order === 'area'
-    ? [...fields].sort((a, b) => area(b.outer) - area(a.outer))
-    : banded(fields, order)
+  let sorted
+  let detail = ''
 
-  log(`Numbering: ${NUMBERING_LABELS[order].toLowerCase()}.`)
+  if (order === 'area') {
+    sorted = [...fields].sort((a, b) => area(b.outer) - area(a.outer))
+  } else if (order === 'chunks') {
+    const count = clamp(options.chunkCount, CHUNK_COUNT)
+    sorted = chunked(fields, count)
+    detail = ` (${count} chunks)`
+  } else if (order === 'radial') {
+    const corner = RADIAL_CORNERS.includes(options.radialCorner) ? options.radialCorner : 'nw'
+    const steps = clamp(options.radialSteps, RADIAL_STEPS)
+    sorted = radial(fields, corner, steps)
+    detail = ` (${RADIAL_CORNER_LABELS[corner].toLowerCase()}, ${steps} rings)`
+  } else {
+    sorted = banded(fields, order)
+  }
+
+  log(`Numbering: ${NUMBERING_LABELS[order].toLowerCase()}${detail}.`)
   return sorted.map((f, i) => ({ ...f, id: i + 1 }))
 }

@@ -24,8 +24,14 @@ export const DEFAULT_OPTIONS = {
   clearance: 0,
   /** World units one source pixel covers. Affects reported areas only. */
   unitsPerPixel: 1,
-  /** Field id order: 'rows' | 'columns' | 'area' | 'source'. */
+  /** Field id order: 'rows' | 'columns' | 'chunks' | 'radial' | 'area' | 'source'. */
   numbering: 'rows',
+  /** Horizontal bands, for numbering: 'chunks'. */
+  chunkCount: 4,
+  /** Corner to grow rings from, for numbering: 'radial'. */
+  radialCorner: 'nw',
+  /** Ring count, for numbering: 'radial'. */
+  radialSteps: 6,
 }
 
 /**
@@ -50,7 +56,7 @@ export function runPipeline(image, options = {}, log = () => {}) {
   const offset = offsetFields(world, opt.clearance, log)
   // Before the later stages, so the ids in the log, the field list and the XML
   // are all the same numbers.
-  const numbered = renumberFields(offset.fields, opt.numbering, log)
+  const numbered = renumberFields(offset.fields, opt, log)
   const simplified = simplifyFields(numbered, opt.simplification, {}, log)
   const bridged = bridgeFields(simplified, log)
   const validation = validateFields(bridged.fields, log)

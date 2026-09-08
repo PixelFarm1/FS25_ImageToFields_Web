@@ -20,6 +20,7 @@ function parseArgs(argv) {
   const opt = {
     input: null, out: 'out', demSize: 2048, simplification: 0.7,
     clearance: 0, unitsPerPixel: 1, numbering: 'rows',
+    chunkCount: 4, radialCorner: 'nw', radialSteps: 6,
     svg: true, quiet: false, audit: null,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -31,6 +32,9 @@ function parseArgs(argv) {
     // --mpp stays accepted as the old spelling of the same option.
     else if (a === '--upp' || a === '--mpp') opt.unitsPerPixel = parseInt(next(), 10)
     else if (a === '--numbering') opt.numbering = next()
+    else if (a === '--chunks') opt.chunkCount = parseInt(next(), 10)
+    else if (a === '--corner') opt.radialCorner = next()
+    else if (a === '--rings') opt.radialSteps = parseInt(next(), 10)
     else if (a === '--out') opt.out = next()
     else if (a === '--audit') opt.audit = next()
     else if (a === '--no-svg') opt.svg = false
@@ -52,7 +56,10 @@ Options
   --simplify <f>     RDP tolerance                    default 0.7
   --clearance <f>    border reduction / island clearance, world units   default 0
   --upp <n>          world units per source pixel, for area reporting   default 1
-  --numbering <o>    field id order: rows|columns|area|source   default rows
+  --numbering <o>    field id order: rows|columns|chunks|radial|area|source  default rows
+  --chunks <n>       bands for --numbering chunks (2-20)          default 4
+  --corner <c>       corner for --numbering radial: nw|ne|sw|se   default nw
+  --rings <n>        rings for --numbering radial (2-20)          default 6
   --out <dir>        output directory                 default ./out
   --no-svg           skip the debug SVG
   -q, --quiet        only print the summary
@@ -108,7 +115,8 @@ async function main() {
     options: {
       demSize: opt.demSize, simplification: opt.simplification,
       clearance: opt.clearance, unitsPerPixel: opt.unitsPerPixel,
-      numbering: opt.numbering,
+      numbering: opt.numbering, chunkCount: opt.chunkCount,
+      radialCorner: opt.radialCorner, radialSteps: opt.radialSteps,
     },
     stats: result.stats,
     warnings: result.warnings,

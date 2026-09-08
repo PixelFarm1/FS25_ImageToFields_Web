@@ -3,7 +3,10 @@ import { zipSync, strToU8 } from 'fflate'
 import FieldCanvas from './FieldCanvas.jsx'
 import PrivacyNotice from './PrivacyNotice.jsx'
 import { trackEvent } from './analytics.js'
-import { NUMBERING_ORDERS, NUMBERING_LABELS } from '../../core/numbering.js'
+import {
+  NUMBERING_ORDERS, NUMBERING_LABELS,
+  CHUNK_COUNT, RADIAL_STEPS, RADIAL_CORNERS, RADIAL_CORNER_LABELS,
+} from '../../core/numbering.js'
 // The importer script ships with the coordinates: the XML is useless in the
 // Giants Editor without it, and telling people to go and find it in the
 // repository is a step that gets missed.
@@ -25,6 +28,13 @@ const TIP = {
   clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
              'leaving machinery the same clearance around a tree island as at the field edge. ' +
              '0 traces the mask exactly.',
+  chunkCount: 'How many equal horizontal bands to split the fields into. Every field in the ' +
+              'top band is numbered before any field in the next one, and each band is read ' +
+              'top-left to bottom-right.',
+  radialCorner: 'The corner the numbering grows out from.',
+  radialSteps: 'How many rings the distance from that corner is divided into. Fields in the ' +
+               'innermost ring are numbered first; within a ring the numbering sweeps round ' +
+               'the arc, so more rings means the order follows distance more closely.',
   numbering: 'What order the field IDs run in. Detection order numbers each field by its ' +
              'single topmost pixel, which is why it can look arbitrary; the reading orders ' +
              'group fields into rows or columns first so neighbours get neighbouring numbers.',
@@ -77,6 +87,9 @@ export default function App() {
   const [clearance, setClearance] = useState(0)
   const [unitsPerPixel, setUnitsPerPixel] = useState(1)
   const [numbering, setNumbering] = useState('rows')
+  const [chunkCount, setChunkCount] = useState(CHUNK_COUNT.default)
+  const [radialCorner, setRadialCorner] = useState('nw')
+  const [radialSteps, setRadialSteps] = useState(RADIAL_STEPS.default)
 
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
@@ -160,9 +173,11 @@ export default function App() {
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
       { type: 'RUN', imageBuffer: buffer,
-        options: { demSize, simplification, clearance, unitsPerPixel, numbering } },
+        options: { demSize, simplification, clearance, unitsPerPixel,
+                   numbering, chunkCount, radialCorner, radialSteps } },
       [buffer])
-  }, [file, running, demSize, simplification, clearance, unitsPerPixel, numbering])
+  }, [file, running, demSize, simplification, clearance, unitsPerPixel,
+      numbering, chunkCount, radialCorner, radialSteps])
 
   function pick(f) {
     if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
@@ -247,6 +262,45 @@ export default function App() {
                 ))}
               </select>
             </div>
+
+            {numbering === 'chunks' && (
+              <div className="field">
+                <label className="tip" htmlFor="chunks" title={TIP.chunkCount}>Chunks</label>
+                <input id="chunks" type="number" inputMode="numeric"
+                       min={CHUNK_COUNT.min} max={CHUNK_COUNT.max} step="1" value={chunkCount}
+                       onChange={e => {
+                         const v = parseInt(e.target.value, 10)
+                         if (Number.isFinite(v)) {
+                           setChunkCount(Math.max(CHUNK_COUNT.min, Math.min(CHUNK_COUNT.max, v)))
+                         }
+                       }} />
+              </div>
+            )}
+
+            {numbering === 'radial' && (
+              <>
+                <div className="field stack">
+                  <label className="tip" htmlFor="corner" title={TIP.radialCorner}>Start corner</label>
+                  <select id="corner" value={radialCorner}
+                          onChange={e => setRadialCorner(e.target.value)}>
+                    {RADIAL_CORNERS.map(c => (
+                      <option key={c} value={c}>{RADIAL_CORNER_LABELS[c]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="tip" htmlFor="rings" title={TIP.radialSteps}>Rings</label>
+                  <input id="rings" type="number" inputMode="numeric"
+                         min={RADIAL_STEPS.min} max={RADIAL_STEPS.max} step="1" value={radialSteps}
+                         onChange={e => {
+                           const v = parseInt(e.target.value, 10)
+                           if (Number.isFinite(v)) {
+                             setRadialSteps(Math.max(RADIAL_STEPS.min, Math.min(RADIAL_STEPS.max, v)))
+                           }
+                         }} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="section">

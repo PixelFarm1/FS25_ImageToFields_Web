@@ -13,6 +13,7 @@ import { fixtures } from '../fixtures/masks.js'
 import { runPipeline } from '../core/pipeline.js'
 import { area, signedArea2, properIntersect, pointInRing } from '../core/geom.js'
 import { signedDistance } from '../core/labelPoint.js'
+import { NUMBERING_ORDERS, RADIAL_CORNERS } from '../core/numbering.js'
 import { decomposeField } from '../audit.js'
 
 const NAMES = Object.keys(fixtures)
@@ -256,9 +257,76 @@ test('grid: numbering orders read the way they say they do', () => {
 })
 
 test('every numbering order produces ids 1..n exactly once', () => {
-  for (const order of ['rows', 'columns', 'area', 'source']) {
+  for (const order of NUMBERING_ORDERS) {
     const ids = run('grid', { numbering: order }).fields.map(f => f.id).sort((a, b) => a - b)
     assert.deepEqual(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9], `${order} produced ${ids}`)
+  }
+})
+
+test('chunks: each band is numbered through before the next begins', () => {
+  const count = 3
+  const fields = run('grid', { numbering: 'chunks', chunkCount: count }).fields
+  const ys = fields.map(f => f.centerY)
+  const minY = Math.min(...ys), maxY = Math.max(...ys)
+  const span = maxY - minY
+
+  let previousMax = 0
+  for (let c = 0; c < count; c++) {
+    const lo = minY + (span * c) / count
+    const hi = minY + (span * (c + 1)) / count
+    const bucket = f => Math.min(count - 1,
+      Math.max(0, Math.floor(((f.centerY - minY) / span) * count)))
+    const band = fields.filter(f => bucket(f) === c)
+    assert.ok(band.length > 0, `band ${c + 1} is empty`)
+
+    const ids = band.map(f => f.id).sort((a, b) => a - b)
+    assert.equal(ids[ids.length - 1] - ids[0] + 1, ids.length,
+      `band ${c + 1} ids are not contiguous: ${ids}`)
+    assert.ok(ids[0] > previousMax,
+      `band ${c + 1} starts at ${ids[0]}, overlapping the band above`)
+    previousMax = ids[ids.length - 1]
+  }
+})
+
+test('chunks: the count is honoured and clamped to its limits', () => {
+  const spread = n => {
+    const fields = run('grid', { numbering: 'chunks', chunkCount: n }).fields
+    return fields.map(f => f.id).sort((a, b) => a - b)
+  }
+  assert.deepEqual(spread(2), [1, 2, 3, 4, 5, 6, 7, 8, 9])
+  // Out-of-range values must not throw or drop fields.
+  assert.deepEqual(spread(999), [1, 2, 3, 4, 5, 6, 7, 8, 9])
+  assert.deepEqual(spread(0), [1, 2, 3, 4, 5, 6, 7, 8, 9])
+})
+
+test('radial: rings are numbered strictly outward from the chosen corner', () => {
+  for (const corner of RADIAL_CORNERS) {
+    const steps = 3
+    const fields = run('grid', { numbering: 'radial', radialCorner: corner, radialSteps: steps }).fields
+    const xs = fields.map(f => f.centerX), ys = fields.map(f => f.centerY)
+    const ox = corner[1] === 'w' ? Math.min(...xs) : Math.max(...xs)
+    const oy = corner[0] === 'n' ? Math.min(...ys) : Math.max(...ys)
+    const dist = f => Math.hypot(f.centerX - ox, f.centerY - oy)
+    const furthest = Math.max(...fields.map(dist))
+
+    let previousMax = 0
+    for (let s = 1; s <= steps; s++) {
+      const lo = (furthest * (s - 1)) / steps
+      const hi = (furthest * s) / steps
+      const bucket = f => Math.min(steps - 1,
+        Math.max(0, Math.floor((dist(f) / furthest) * steps)))
+      const ring = fields.filter(f => bucket(f) === s - 1)
+      if (!ring.length) continue
+      const ids = ring.map(f => f.id)
+      assert.ok(Math.min(...ids) > previousMax,
+        `${corner}: ring ${s} overlaps an inner ring`)
+      previousMax = Math.max(...ids)
+    }
+
+    // The field in the innermost occupied ring must come first overall.
+    const first = fields.find(f => f.id === 1)
+    assert.ok(dist(first) <= furthest / steps + 1e-6,
+      `${corner}: field 1 is not in the innermost ring`)
   }
 })
 
