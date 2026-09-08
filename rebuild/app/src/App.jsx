@@ -20,8 +20,9 @@ const TIP = {
   clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
              'leaving machinery the same clearance around a tree island as at the field edge. ' +
              '0 traces the mask exactly.',
-  mpp: 'How many real metres one pixel of your mask covers. Only affects the reported areas, ' +
-       'never the geometry.',
+  upp: 'How many world units one pixel of your mask covers. One Giants unit is one metre, so ' +
+       'this is what turns the traced geometry into the hectare figures. Whole numbers only, ' +
+       'and it never changes the geometry — only the reported areas.',
   refShow: 'Draw the uploaded mask underneath the field outlines, to compare the traced result ' +
            'against the pixels it came from.',
   refOpacity: 'How strongly the reference mask shows through.',
@@ -58,7 +59,7 @@ export default function App() {
   const [demSize, setDemSize] = useState(4096)
   const [simplification, setSimplification] = useState(0.2)
   const [clearance, setClearance] = useState(0)
-  const [metersPerPixel, setMetersPerPixel] = useState(2)
+  const [unitsPerPixel, setUnitsPerPixel] = useState(1)
 
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
@@ -141,9 +142,9 @@ export default function App() {
     trackEvent('pipeline_started', { demSize, simplification, clearance })
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
-      { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, metersPerPixel } },
+      { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, unitsPerPixel } },
       [buffer])
-  }, [file, running, demSize, simplification, clearance, metersPerPixel])
+  }, [file, running, demSize, simplification, clearance, unitsPerPixel])
 
   function pick(f) {
     if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
@@ -210,9 +211,16 @@ export default function App() {
             </div>
 
             <div className="field">
-              <label className="tip" htmlFor="mpp" title={TIP.mpp}>Metres / pixel</label>
-              <input id="mpp" type="number" min="0.01" step="0.1" value={metersPerPixel}
-                     onChange={e => { const v = +e.target.value; if (v > 0) setMetersPerPixel(v) }} />
+              <label className="tip" htmlFor="upp" title={TIP.upp}>Units per pixel</label>
+              <input id="upp" type="number" min="1" step="1" inputMode="numeric"
+                     value={unitsPerPixel}
+                     onKeyDown={e => { if (e.key === '.' || e.key === ',' || e.key === 'e') e.preventDefault() }}
+                     onChange={e => {
+                       // Whole units only, so the spinner and the arrow keys
+                       // both move by exactly one.
+                       const v = parseInt(e.target.value, 10)
+                       if (Number.isFinite(v) && v >= 1) setUnitsPerPixel(v)
+                     }} />
             </div>
           </div>
 

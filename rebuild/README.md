@@ -76,7 +76,7 @@ node cli.js --audit path/to/final_field_coordinates.xml
 | `--dem <n>` | DEM size (1024 / 2048 / 4096 / 8192) | 2048 |
 | `--simplify <f>` | RDP tolerance, capped per ring at 2% of its own size | 0.2 |
 | `--clearance <f>` | border reduction *and* island clearance, world units | 0 |
-| `--mpp <f>` | metres per source pixel, for area reporting | 2 |
+| `--upp <n>` | world units per source pixel, for area reporting (whole numbers) | 1 |
 | `--out <dir>` | output directory | `./out` |
 | `--no-svg` | skip the debug SVG | |
 
@@ -110,10 +110,14 @@ result was produced with, so moving the slider afterwards cannot slide it out of
 register. Smoothing is off when magnified, so the pixel staircase stays visible
 under the simplified outline.
 
-**Selecting.** Clicking a field — on the canvas or in the list — marks it,
-centres it and zooms to its extent. A press that travels more than a few pixels
-counts as a pan, so dragging the map no longer selects whatever happened to be
-under the cursor when the button came up.
+**Selecting.** Clicking a field — on the canvas or in the list — marks it and
+glides the camera to its extent. The centre is interpolated linearly and the
+scale geometrically, because zoom is multiplicative: a linear ramp from 1x to
+50x spends nearly all its time at the far end and reads as a lurch. Any pan or
+wheel input cancels a running tween, and `prefers-reduced-motion` skips it. A
+press that travels more than a few pixels counts as a pan, so dragging the map
+no longer selects whatever happened to be under the cursor when the button came
+up.
 
 **Analytics.** Consent-gated Google Analytics, carried over from the main app
 and sharing its consent key, so a visitor who already chose there is not asked

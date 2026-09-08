@@ -173,6 +173,72 @@ export default function FieldCanvas({
     }
   }, [fields, selected, refImage, refVisible, refOpacity, refDemSize])
 
+  // --- camera -------------------------------------------------------------
+  // Held in refs so a running tween always calls the current draw and is not
+  // restarted by an unrelated re-render.
+  const drawRef = useRef(draw)
+  drawRef.current = draw
+  const animRef = useRef(0)
+
+  const stopAnimation = useCallback(() => {
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = 0 }
+  }, [])
+
+  /** Place the camera so world point (cx, cy) sits at the canvas centre. */
+  const applyCamera = useCallback((scale, cx, cy) => {
+    const canvas = ref.current
+    if (!canvas) return
+    const v = view.current
+    v.scale = scale
+    v.tx = canvas.width / 2 - cx * scale
+    v.ty = canvas.height / 2 - cy * scale
+  }, [])
+
+  /**
+   * Glide the camera to a target framing.
+   *
+   * The centre is interpolated linearly but the scale geometrically: zoom is
+   * multiplicative, so a linear ramp from 1x to 50x spends almost all its time
+   * at the far end and reads as a lurch. Easing the exponent instead keeps the
+   * apparent rate of magnification steady.
+   */
+  const animateTo = useCallback((scale, cx, cy, duration = 420) => {
+    const canvas = ref.current
+    if (!canvas) return
+    stopAnimation()
+
+    const v = view.current
+    const fromScale = v.scale
+    const fromCx = (canvas.width / 2 - v.tx) / v.scale
+    const fromCy = (canvas.height / 2 - v.ty) / v.scale
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const negligible =
+      Math.abs(Math.log(scale / fromScale)) < 0.01 &&
+      Math.hypot(cx - fromCx, cy - fromCy) * scale < 1
+
+    if (reduceMotion || duration <= 0 || negligible) {
+      applyCamera(scale, cx, cy)
+      drawRef.current()
+      return
+    }
+
+    const start = performance.now()
+    const tick = now => {
+      const t = Math.min(1, (now - start) / duration)
+      const e = 1 - (1 - t) ** 3 // ease-out cubic
+      applyCamera(
+        fromScale * (scale / fromScale) ** e,
+        fromCx + (cx - fromCx) * e,
+        fromCy + (cy - fromCy) * e)
+      drawRef.current()
+      animRef.current = t < 1 ? requestAnimationFrame(tick) : 0
+    }
+    animRef.current = requestAnimationFrame(tick)
+  }, [applyCamera, stopAnimation])
+
+  useEffect(() => stopAnimation, [stopAnimation])
+
   const fit = useCallback(() => {
     const canvas = ref.current
     if (!canvas) return
@@ -196,11 +262,11 @@ export default function FieldCanvas({
     const scale = Math.min(
       (canvas.width - pad * 2) / Math.max(1, maxX - minX),
       (canvas.height - pad * 2) / Math.max(1, maxY - minY))
-    view.current.scale = scale
-    view.current.tx = canvas.width / 2 - ((minX + maxX) / 2) * scale
-    view.current.ty = canvas.height / 2 - ((minY + maxY) / 2) * scale
+    // A fresh result is a new scene, not a move within one, so it snaps.
+    stopAnimation()
+    applyCamera(scale, (minX + maxX) / 2, (minY + maxY) / 2)
     draw()
-  }, [fields, draw, refImage, refVisible, refDemSize])
+  }, [fields, draw, refImage, refVisible, refDemSize, applyCamera, stopAnimation])
 
   const hasContent = !!fields?.length || (!!refImage && refVisible)
 
@@ -239,7 +305,8 @@ export default function FieldCanvas({
   }, [refVisible, refImage, refOpacity, refDemSize, fields, fit, draw])
 
   // Selecting a field frames it: centred and zoomed to its own extent, so a
-  // small field in a large map is actually readable once picked.
+  // small field in a large map is actually readable once picked. The camera
+  // glides there rather than cutting, so it stays obvious where the view went.
   useEffect(() => {
     if (selected == null || !fields?.length) return
     const f = fields.find(x => x.id === selected)
@@ -258,13 +325,11 @@ export default function FieldCanvas({
     const scale = Math.min(
       (canvas.width - pad * 2) / Math.max(1, maxX - minX),
       (canvas.height - pad * 2) / Math.max(1, maxY - minY))
-    view.current.scale = scale
-    view.current.tx = canvas.width / 2 - ((minX + maxX) / 2) * scale
-    view.current.ty = canvas.height / 2 - ((minY + maxY) / 2) * scale
-    draw()
-  }, [selected, fields, draw])
+    animateTo(scale, (minX + maxX) / 2, (minY + maxY) / 2)
+  }, [selected, fields, animateTo])
 
   function onWheel(e) {
+    stopAnimation() // the user's input always wins over a running tween
     const canvas = ref.current
     const rect = canvas.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
@@ -280,6 +345,7 @@ export default function FieldCanvas({
 
   function onDown(e) {
     if (e.button !== 0) return
+    stopAnimation()
     const v = view.current
     v.drag = true
     v.lx = e.clientX; v.ly = e.clientY

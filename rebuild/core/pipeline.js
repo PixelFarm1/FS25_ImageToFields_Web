@@ -20,8 +20,8 @@ export const DEFAULT_OPTIONS = {
   simplification: 0.2,
   /** Border reduction / island clearance, in world units. */
   clearance: 0,
-  /** Metres per source pixel, for area reporting only. */
-  metersPerPixel: 2,
+  /** World units one source pixel covers. Affects reported areas only. */
+  unitsPerPixel: 1,
 }
 
 /**
@@ -48,9 +48,12 @@ export function runPipeline(image, options = {}, log = () => {}) {
   const bridged = bridgeFields(simplified, log)
   const validation = validateFields(bridged.fields, log)
 
-  // Area in m². ratio = px per world unit; metersPerWorldUnit converts through it.
+  // Reported areas. ratio is source pixels per world unit, and unitsPerPixel is
+  // how many real units one source pixel covers, so their product converts a
+  // world-unit length to a real one; squared, it converts an area. One Giants
+  // unit is one metre, which is why the areas are reported as m² / hectares.
   const ratio = width / opt.demSize
-  const m2PerWorldUnit2 = (opt.metersPerPixel * ratio) ** 2
+  const areaScale = (opt.unitsPerPixel * ratio) ** 2
 
   const fields = bridged.fields.map(f => {
     const outerArea = area(f.rings?.[0] ?? f.outer)
@@ -65,7 +68,7 @@ export function runPipeline(image, options = {}, log = () => {}) {
       bridges: f.bridges,
       rings: f.rings,
       islandCount: (f.rings?.length ?? 1) - 1,
-      areaM2: Math.max(0, outerArea - islandArea) * m2PerWorldUnit2,
+      areaM2: Math.max(0, outerArea - islandArea) * areaScale,
     }
   })
 
