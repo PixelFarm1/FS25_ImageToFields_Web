@@ -65,7 +65,6 @@ Any geometry problem the validator finds is flagged on the field it belongs to.
 4. Drop `coordinatesToFields.lua` into your GE scripts folder (or load it as a script)
 5. Run the script — a file dialog opens, select your `final_field_coordinates.xml`
 6. The script creates all field polygons and repaints the cultivated ground
-7. Use the built in MapToolkit plugins to simplify field nodes if necessary
 
 ---
 
