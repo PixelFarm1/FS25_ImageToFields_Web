@@ -155,7 +155,31 @@ export default function FieldCanvas({
       ctx.restore()
     }
 
-    if (!fields?.length) return
+    // Painted region dividers, over whatever else is on the canvas.
+    //
+    // Drawn before the early return below, not after the fields: region
+    // boundaries are drawn on a fresh mask, before a run has produced anything
+    // to show, and putting this after that return meant a line could be drawn
+    // and recorded but never appear.
+    const drawStroke = (points, colour) => {
+      if (points.length < 2) return
+      ctx.beginPath()
+      ctx.moveTo(tx + points[0].x * scale, ty + points[0].y * scale)
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(tx + points[i].x * scale, ty + points[i].y * scale)
+      }
+      ctx.strokeStyle = colour
+      ctx.lineWidth = 3.5
+      ctx.lineJoin = 'round'
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    }
+    const paintStrokes = () => {
+      for (const s of strokes) drawStroke(s, COL.stroke)
+      if (draftRef.current.length > 1) drawStroke(draftRef.current, COL.strokeDraft)
+    }
+
+    if (!fields?.length) { paintStrokes(); return }
 
     const P = (f, p) => [tx + (f.centerX + p.x) * scale, ty + (f.centerY + p.y) * scale]
     const path = (f, ring) => {
@@ -204,22 +228,7 @@ export default function FieldCanvas({
       }
     }
 
-    // Painted region dividers, over the fields they cut between.
-    const drawStroke = (points, colour) => {
-      if (points.length < 2) return
-      ctx.beginPath()
-      ctx.moveTo(tx + points[0].x * scale, ty + points[0].y * scale)
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(tx + points[i].x * scale, ty + points[i].y * scale)
-      }
-      ctx.strokeStyle = colour
-      ctx.lineWidth = 3.5
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-      ctx.stroke()
-    }
-    for (const s of strokes) drawStroke(s, COL.stroke)
-    if (draftRef.current.length > 1) drawStroke(draftRef.current, COL.strokeDraft)
+    paintStrokes()
 
     // Rounded rind-green chips, as in the main app's canvas.
     if (scale > 0.08) {
