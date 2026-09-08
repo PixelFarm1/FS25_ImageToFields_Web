@@ -11,9 +11,9 @@ Farming Simulator 25. No installation, no upload — everything runs in your bro
 
 Drop in a white-on-black field mask and the tool traces every field boundary, works out
 which non-field areas are islands inside them, connects those islands into a single
-importable polygon, and writes a ready-to-use XML. `coordinatesToFields.lua` in this
-repository is a Giants Editor script that reads that XML and places the field polygons into
-your map.
+importable polygon, and writes a ready-to-use XML. The download is a .zip containing that
+XML together with `coordinatesToFields.lua`, a Giants Editor script that reads it and places
+the field polygons into your map.
 
 ## What a correct field mask looks like
 
@@ -56,7 +56,8 @@ Any geometry problem the validator finds is flagged on the field it belongs to.
 
 ## 3 — Import into Giants Editor
 
-1. Press **Download XML**
+1. Press **Download .zip** — it contains `final_field_coordinates.xml` and the
+   `coordinatesToFields.lua` importer script
 2. Open your map in Giants Editor
 3. Make sure you have a `Fields` transform group with the correct attributes, and remove any
    existing children from it

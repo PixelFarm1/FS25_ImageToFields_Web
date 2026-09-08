@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { zipSync, strToU8 } from 'fflate'
 import FieldCanvas from './FieldCanvas.jsx'
 import PrivacyNotice from './PrivacyNotice.jsx'
 import { trackEvent } from './analytics.js'
+// The importer script ships with the coordinates: the XML is useless in the
+// Giants Editor without it, and telling people to go and find it in the
+// repository is a step that gets missed.
+import luaScript from '../../coordinatesToFields.lua?raw'
 
 const DEM_SIZES = [1024, 2048, 4096, 8192]
 
@@ -46,6 +51,14 @@ function download(name, content, mime) {
   a.href = url; a.download = name
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** The coordinates plus the editor script that imports them. */
+export function buildOutputZip(xml) {
+  return zipSync({
+    'final_field_coordinates.xml': strToU8(xml),
+    'coordinatesToFields.lua': strToU8(luaScript),
+  }, { level: 6 })
 }
 
 const fmtHa = m2 => {
@@ -249,11 +262,12 @@ export default function App() {
               {running ? 'Running…' : 'Run'}
             </button>
             <button className="btn" disabled={!result}
+                    title="Downloads the field coordinates together with coordinatesToFields.lua, the script that imports them into the Giants Editor."
                     onClick={() => {
-                      trackEvent('xml_downloaded')
-                      download('final_field_coordinates.xml', result.xml, 'application/xml')
+                      trackEvent('zip_downloaded')
+                      download('fs25_fields.zip', buildOutputZip(result.xml), 'application/zip')
                     }}>
-              Download XML
+              Download .zip
             </button>
           </div>
 
