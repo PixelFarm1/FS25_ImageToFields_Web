@@ -142,12 +142,22 @@ export function toWorld(contourFields, width, height, demSize) {
   const ratio = width / demSize
   const round = v => Math.round(v * 100) / 100
 
+  // The half-pixel matters. A pixel index names that pixel's top-left corner —
+  // pixel p covers [p, p+1) — but a traced contour vertex is the *centre* of a
+  // boundary pixel, and a centroid averaged over pixel indices is likewise half
+  // a pixel up-left of the true centre of mass. Dropping the 0.5 made the two
+  // errors cancel along a field's top and left edges and add along its bottom
+  // and right, leaving those a full pixel short of the mask and letting a field
+  // overlap the bottom and right edge of its own islands.
+  const toWorldX = px => (px + 0.5 - width / 2) / ratio
+  const toWorldY = py => (py + 0.5 - height / 2) / ratio
+
   return contourFields.map(f => {
-    const centerX = round((f.centroidPx.x - width / 2) / ratio)
-    const centerY = round((f.centroidPx.y - height / 2) / ratio)
+    const centerX = round(toWorldX(f.centroidPx.x))
+    const centerY = round(toWorldY(f.centroidPx.y))
     const conv = pts => pts.map(p => ({
-      x: round((p.x - width / 2) / ratio - centerX),
-      y: round((p.y - height / 2) / ratio - centerY),
+      x: round(toWorldX(p.x) - centerX),
+      y: round(toWorldY(p.y) - centerY),
     }))
     return {
       id: f.id,
