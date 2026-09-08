@@ -227,6 +227,40 @@ test('c-shape: the label avoids the gap the centroid falls into', () => {
     `expected a roomy label spot, got clearance ${f.labelClearance}`)
 })
 
+test('the exported XML declares an origin inside its own field', () => {
+  // The importer hangs nameIndicator and teleportIndicator off the field's
+  // origin, so an origin outside the polygon puts the field's name marker and
+  // its teleport target on open ground.
+  for (const name of NAMES) {
+    const xml = run(name).xml.final
+    for (const m of xml.matchAll(/<Field ID="(\d+)"[^>]*>([\s\S]*?)<\/Field>/g)) {
+      const ring = [...m[2].matchAll(/<coordinate X="([-\d.]+)" Y="([-\d.]+)"/g)]
+        .map(c => ({ x: +c[1], y: +c[2] }))
+      assert.ok(pointInRing({ x: 0, y: 0 }, ring),
+        `${name} field ${m[1]}: XML origin is outside the polygon`)
+    }
+  }
+})
+
+test('re-origining leaves the polygon where it was', () => {
+  // Moving the pivot must not move the field. origin + offset has to match the
+  // absolute position the pipeline computed.
+  for (const name of NAMES) {
+    const r = run(name)
+    for (const m of r.xml.final.matchAll(
+      /<Field ID="(\d+)" X="([-\d.]+)" Y="([-\d.]+)">([\s\S]*?)<\/Field>/g)) {
+      const f = r.fields.find(x => x.id === +m[1])
+      const originX = +m[2], originY = +m[3]
+      const first = [...m[4].matchAll(/<coordinate X="([-\d.]+)" Y="([-\d.]+)"/g)][0]
+      const absX = originX + +first[1]
+      const absY = originY + +first[2]
+      assert.ok(Math.abs(absX - (f.centerX + f.coordinates[0].x)) < 0.02 &&
+                Math.abs(absY - (f.centerY + f.coordinates[0].y)) < 0.02,
+        `${name} field ${f.id}: polygon moved when the pivot did`)
+    }
+  }
+})
+
 test('audit round-trips the emitted format', () => {
   // The stitched output has to remain self-describing: mergeID markers plus
   // repeated vertices must be enough to recover the rings again.
