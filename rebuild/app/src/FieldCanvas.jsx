@@ -1,4 +1,23 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { pointInRing } from '../../core/geom.js'
+
+/** Pointer travel, in CSS pixels, above which a press counts as a pan not a click. */
+const DRAG_SLOP = 5
+
+/**
+ * World-space footprint of the reference mask, centred on the origin.
+ *
+ * toWorld divides both axes by the same ratio = imageWidth / demSize, so the
+ * mask spans exactly demSize world units across — but only demSize *
+ * height/width down. It is a square just for a square mask; assuming a square
+ * for everything stretches a 400x300 mask vertically against the vectors traced
+ * from it.
+ */
+export function refWorldSize(image, demSize) {
+  const w = demSize
+  const h = demSize * (image.height / image.width)
+  return { w, h }
+}
 
 // Watermelon UI, matching web/src/components/FieldCanvas.jsx: warm cream ground,
 // flesh-red field boundaries, rind-green labels. The three overlay hues are new
@@ -29,7 +48,14 @@ export default function FieldCanvas({
   refImage = null, refVisible = false, refOpacity = 0.35, refDemSize = 2048,
 }) {
   const ref = useRef(null)
-  const view = useRef({ tx: 0, ty: 0, scale: 1, drag: false, lx: 0, ly: 0, fitted: false })
+  // `moved` accumulates pointer travel since mousedown. A press that travelled
+  // more than DRAG_SLOP was a pan, not a click, so the click that the browser
+  // fires afterwards is ignored — otherwise every drag also selected whatever
+  // field happened to be nearest when the button came up.
+  const view = useRef({
+    tx: 0, ty: 0, scale: 1,
+    drag: false, lx: 0, ly: 0, moved: 0, fitted: false,
+  })
 
   const draw = useCallback(() => {
     const canvas = ref.current
@@ -54,14 +80,8 @@ export default function FieldCanvas({
     }
 
     // Reference mask, underneath the vectors.
-    //
-    // toWorld maps a pixel through ratio = imageWidth / demSize, so pixel (0,0)
-    // lands at world (-demSize/2, -demSize/2) and the far corner at
-    // (+demSize/2, +demSize/2): the mask always covers a demSize square centred
-    // on the origin, whatever its pixel dimensions. Only demSize is needed here,
-    // and a 1024 mask lines up with an 8192 one at the same DEM setting.
     if (refVisible && refImage) {
-      const half = refDemSize / 2
+      const { w: worldW, h: worldH } = refWorldSize(refImage, refDemSize)
       ctx.save()
       ctx.globalAlpha = refOpacity
       // Crisp pixels when magnified, so the staircase the simplifier is being
@@ -69,8 +89,8 @@ export default function FieldCanvas({
       ctx.imageSmoothingEnabled = scale < 1
       ctx.drawImage(
         refImage,
-        tx - half * scale, ty - half * scale,
-        refDemSize * scale, refDemSize * scale)
+        tx - (worldW / 2) * scale, ty - (worldH / 2) * scale,
+        worldW * scale, worldH * scale)
       ctx.restore()
     }
 
@@ -167,8 +187,9 @@ export default function FieldCanvas({
     // With no result yet, frame the reference mask so it can be inspected on
     // its own before a run.
     if (!isFinite(minX) && refImage && refVisible) {
-      const half = refDemSize / 2
-      minX = minY = -half; maxX = maxY = half
+      const { w, h } = refWorldSize(refImage, refDemSize)
+      minX = -w / 2; maxX = w / 2
+      minY = -h / 2; maxY = h / 2
     }
     if (!isFinite(minX)) return
     const pad = 40
@@ -217,15 +238,29 @@ export default function FieldCanvas({
     else draw()
   }, [refVisible, refImage, refOpacity, refDemSize, fields, fit, draw])
 
-  // Centre the selected field without changing zoom.
+  // Selecting a field frames it: centred and zoomed to its own extent, so a
+  // small field in a large map is actually readable once picked.
   useEffect(() => {
     if (selected == null || !fields?.length) return
     const f = fields.find(x => x.id === selected)
     const canvas = ref.current
     if (!f || !canvas) return
-    const { scale } = view.current
-    view.current.tx = canvas.width / 2 - f.centerX * scale
-    view.current.ty = canvas.height / 2 - f.centerY * scale
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const p of f.rings?.[0] ?? []) {
+      const x = f.centerX + p.x, y = f.centerY + p.y
+      if (x < minX) minX = x; if (x > maxX) maxX = x
+      if (y < minY) minY = y; if (y > maxY) maxY = y
+    }
+    if (!isFinite(minX)) return
+
+    const pad = 60
+    const scale = Math.min(
+      (canvas.width - pad * 2) / Math.max(1, maxX - minX),
+      (canvas.height - pad * 2) / Math.max(1, maxY - minY))
+    view.current.scale = scale
+    view.current.tx = canvas.width / 2 - ((minX + maxX) / 2) * scale
+    view.current.ty = canvas.height / 2 - ((minY + maxY) / 2) * scale
     draw()
   }, [selected, fields, draw])
 
@@ -244,37 +279,60 @@ export default function FieldCanvas({
   }
 
   function onDown(e) {
-    view.current.drag = true
-    view.current.lx = e.clientX; view.current.ly = e.clientY
+    if (e.button !== 0) return
+    const v = view.current
+    v.drag = true
+    v.lx = e.clientX; v.ly = e.clientY
+    v.moved = 0
     ref.current.classList.add('dragging')
+    ref.current.setPointerCapture?.(e.pointerId)
   }
   function onMove(e) {
     const v = view.current
     if (!v.drag) return
+    const dx = e.clientX - v.lx, dy = e.clientY - v.ly
+    v.moved += Math.abs(dx) + Math.abs(dy)
     const dpr = window.devicePixelRatio || 1
-    v.tx += (e.clientX - v.lx) * dpr
-    v.ty += (e.clientY - v.ly) * dpr
+    v.tx += dx * dpr
+    v.ty += dy * dpr
     v.lx = e.clientX; v.ly = e.clientY
     draw()
   }
-  function onUp() {
-    view.current.drag = false
+  function onUp(e) {
+    const v = view.current
+    if (!v.drag) return
+    v.drag = false
     ref.current?.classList.remove('dragging')
+    ref.current?.releasePointerCapture?.(e?.pointerId)
   }
 
   function onClick(e) {
+    // A pan ends in a click event too; only treat it as a selection if the
+    // pointer effectively stayed put.
+    if (view.current.moved > DRAG_SLOP) { view.current.moved = 0; return }
     if (!fields?.length) return
+
     const canvas = ref.current
     const rect = canvas.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
     const mx = (e.clientX - rect.left) * dpr, my = (e.clientY - rect.top) * dpr
     const { tx, ty, scale } = view.current
-    let best = null, bd = Infinity
+
+    // World-space hit test: prefer a field the click actually landed inside,
+    // and fall back to the nearest centre only when the click hit no field.
+    const wx = (mx - tx) / scale, wy = (my - ty) / scale
+    let hit = null, best = null, bd = Infinity
     for (const f of fields) {
-      const d = Math.hypot(tx + f.centerX * scale - mx, ty + f.centerY * scale - my)
+      const local = { x: wx - f.centerX, y: wy - f.centerY }
+      if (f.rings?.[0] && pointInRing(local, f.rings[0])) {
+        const inIsland = f.rings.slice(1).some(r => pointInRing(local, r))
+        if (!inIsland) { hit = f; break }
+      }
+      const d = Math.hypot(f.centerX - wx, f.centerY - wy)
       if (d < bd) { bd = d; best = f }
     }
-    if (best && bd < 200) onSelect(best.id === selected ? null : best.id)
+    const picked = hit ?? (bd * scale < 60 ? best : null)
+    onSelect(picked ? (picked.id === selected ? null : picked.id) : null)
   }
 
   return (
@@ -282,10 +340,10 @@ export default function FieldCanvas({
       <canvas
         ref={ref}
         onWheel={onWheel}
-        onMouseDown={onDown}
-        onMouseMove={onMove}
-        onMouseUp={onUp}
-        onMouseLeave={onUp}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
         onClick={onClick}
       />
       {!fields?.length && !(refImage && refVisible) && (

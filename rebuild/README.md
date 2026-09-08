@@ -101,14 +101,23 @@ immediately instead of surfacing in the editor.
 
 **Reference overlay.** *Reference image* draws the uploaded mask underneath the
 vectors, with a toggle and an opacity slider, so simplification can be judged
-against the raster it came from. The mask always covers a `demSize` square
-centred on the world origin — `toWorld` divides by `ratio = imageWidth /
-demSize`, so pixel (0,0) lands at `(-demSize/2, -demSize/2)` regardless of the
-image's pixel dimensions — which means a 1024 mask and an 8192 mask register
-identically at the same DEM setting. Once a result is on screen the overlay uses
-the DEM size that result was produced with, so moving the slider afterwards
-cannot slide it out of register. Smoothing is off when magnified, so the pixel
-staircase stays visible under the simplified outline.
+against the raster it came from. `toWorld` divides *both* axes by the same
+`ratio = imageWidth / demSize`, so the mask spans exactly `demSize` world units
+across but only `demSize × height / width` down — a square only for a square
+mask. A 1024 mask and an 8192 mask therefore register identically at the same
+DEM setting. Once a result is on screen the overlay uses the DEM size that
+result was produced with, so moving the slider afterwards cannot slide it out of
+register. Smoothing is off when magnified, so the pixel staircase stays visible
+under the simplified outline.
+
+**Selecting.** Clicking a field — on the canvas or in the list — marks it,
+centres it and zooms to its extent. A press that travels more than a few pixels
+counts as a pan, so dragging the map no longer selects whatever happened to be
+under the cursor when the button came up.
+
+**Analytics.** Consent-gated Google Analytics, carried over from the main app
+and sharing its consent key, so a visitor who already chose there is not asked
+again. Nothing loads from googletagmanager.com until the visitor opts in.
 
 ## Tests
 

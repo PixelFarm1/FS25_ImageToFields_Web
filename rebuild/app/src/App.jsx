@@ -1,7 +1,44 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import FieldCanvas from './FieldCanvas.jsx'
+import PrivacyNotice from './PrivacyNotice.jsx'
+import { trackEvent } from './analytics.js'
 
 const DEM_SIZES = [1024, 2048, 4096, 8192]
+
+const VERSION = '0.3.0'
+const PREVIOUS_VERSION = '0.2.0'
+
+/** Explanations shown on hover. "wu" in particular is not self-evident. */
+const TIP = {
+  mask: 'The black-and-white image to trace. White pixels are field, black is everything else.',
+  dem: 'Resolution of your map\'s DEM.png minus 1 — a 4097x4097 DEM means 4096. This sets the ' +
+       'world scale: the mask is stretched across a DEM-sized square, so a 1024px and an 8192px ' +
+       'mask produce the same coordinates at the same setting.',
+  simplify: 'How aggressively boundary points are removed (Ramer-Douglas-Peucker tolerance, in ' +
+            'world units). Capped per ring at 2% of that ring\'s own size, so small islands keep ' +
+            'their shape at settings that noticeably thin a large boundary. 0 disables it.',
+  clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
+             'leaving machinery the same clearance around a tree island as at the field edge. ' +
+             '0 traces the mask exactly.',
+  mpp: 'How many real metres one pixel of your mask covers. Only affects the reported areas, ' +
+       'never the geometry.',
+  refShow: 'Draw the uploaded mask underneath the field outlines, to compare the traced result ' +
+           'against the pixels it came from.',
+  refOpacity: 'How strongly the reference mask shows through.',
+
+  fields: 'Field polygons found in the mask, after any that sit inside an island were dropped.',
+  islands: 'Non-field areas fully enclosed by a field — trees, ponds, rocks.',
+  toBoundary: 'Bridges connecting an island cluster to the field boundary. One per cluster.',
+  chained: 'Bridges connecting one island directly to another. Chaining islands keeps bridges ' +
+           'short and stops them crossing other islands.',
+  bridgeLength: 'Total length of all bridges, in world units (wu) — the coordinate unit the ' +
+                'Giants Editor uses. Shorter is better: every bridge is a zero-width slit cut ' +
+                'into the field.',
+  points: 'Total coordinates across all fields in the exported XML.',
+  errors: 'Geometry problems found by validation — a bridge over non-field area, an unclosed ' +
+          'ring, a bad winding. Anything above 0 is worth investigating before importing.',
+  elapsed: 'Time the pipeline itself took, excluding decoding the image.',
+}
 
 function download(name, content, mime) {
   const url = URL.createObjectURL(new Blob([content], { type: mime }))
@@ -9,6 +46,11 @@ function download(name, content, mime) {
   a.href = url; a.download = name
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const fmtHa = m2 => {
+  const ha = m2 / 10000
+  return ha >= 100 ? Math.round(ha).toLocaleString() : ha.toFixed(1)
 }
 
 export default function App() {
@@ -23,6 +65,7 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [selected, setSelected] = useState(null)
   const [over, setOver] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
 
   // Reference underlay: the uploaded mask, drawn beneath the vectors.
   const [refImage, setRefImage] = useState(null)
@@ -35,15 +78,24 @@ export default function App() {
   const worker = useRef(null)
   const logEnd = useRef(null)
   const liveBitmap = useRef(null)
+  const rowRefs = useRef(new Map())
 
   useEffect(() => {
     worker.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
     worker.current.onmessage = ({ data }) => {
       if (data.type === 'LOG') setLogs(l => [...l, data.message])
-      else if (data.type === 'DONE') { setResult(data); setRunning(false) }
-      else if (data.type === 'ERROR') {
+      else if (data.type === 'DONE') {
+        setResult(data)
+        setRunning(false)
+        trackEvent('pipeline_completed', {
+          fields: data.stats.fields,
+          islands: data.stats.islands,
+          errors: data.stats.errors,
+        })
+      } else if (data.type === 'ERROR') {
         setLogs(l => [...l, `ERROR: ${data.message}`])
         setRunning(false)
+        trackEvent('pipeline_failed')
       }
     }
     worker.current.onerror = e => {
@@ -76,10 +128,17 @@ export default function App() {
     return () => { cancelled = true }
   }, [file])
 
+  // Keep the selected row in view when the selection came from the canvas.
+  useEffect(() => {
+    if (selected == null) return
+    rowRefs.current.get(selected)?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
   const run = useCallback(async () => {
     if (!file || running) return
     setRunning(true); setResult(null); setSelected(null); setLogs([])
     setRanDemSize(demSize)
+    trackEvent('pipeline_started', { demSize, simplification, clearance })
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
       { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, metersPerPixel } },
@@ -87,19 +146,24 @@ export default function App() {
   }, [file, running, demSize, simplification, clearance, metersPerPixel])
 
   function pick(f) {
-    if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]) }
+    if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
   }
 
   const stats = result?.stats
   const chained = stats ? stats.bridges - stats.bridgesToBoundary : 0
+  const totalAreaM2 = useMemo(
+    () => result?.fields.reduce((s, f) => s + f.areaM2, 0) ?? 0,
+    [result])
 
   return (
     <div className="app">
       <header>
         <h1>ImageToFields</h1>
-        <span className="tag">REBUILD</span>
-        <span className="note">visibility-filtered island bridging · shares core/ with the CLI</span>
+        <span className="tag" title={`Rebuilt pipeline. The previous release was v${PREVIOUS_VERSION}.`}>
+          v{PREVIOUS_VERSION} → v{VERSION}
+        </span>
         <span className="spacer" />
+        <button className="headerlink" onClick={() => setPrivacyOpen(true)}>Privacy</button>
         <span className="note">{file ? file.name : 'no mask loaded'}</span>
       </header>
 
@@ -107,7 +171,7 @@ export default function App() {
         {/* ---------------- controls ---------------- */}
         <div className="col left">
           <div className="section">
-            <h2>Field mask</h2>
+            <h2 className="tip" title={TIP.mask}>Field mask</h2>
             <label
               className={`drop${over ? ' over' : ''}`}
               onDragOver={e => { e.preventDefault(); setOver(true) }}
@@ -125,28 +189,28 @@ export default function App() {
             <h2>Settings</h2>
 
             <div className="field">
-              <label htmlFor="dem">DEM size</label>
+              <label className="tip" htmlFor="dem" title={TIP.dem}>DEM size</label>
               <select id="dem" value={demSize} onChange={e => setDemSize(+e.target.value)}>
                 {DEM_SIZES.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
 
             <div className="field">
-              <label htmlFor="simp">Simplification</label>
+              <label className="tip" htmlFor="simp" title={TIP.simplify}>Simplification</label>
               <input id="simp" type="range" min="0" max="2" step="0.05"
                      value={simplification} onChange={e => setSimplification(+e.target.value)} />
               <span className="val">{simplification.toFixed(2)}</span>
             </div>
 
             <div className="field">
-              <label htmlFor="clr">Clearance</label>
+              <label className="tip" htmlFor="clr" title={TIP.clearance}>Clearance</label>
               <input id="clr" type="range" min="0" max="10" step="0.5"
                      value={clearance} onChange={e => setClearance(+e.target.value)} />
               <span className="val">{clearance.toFixed(1)}</span>
             </div>
 
             <div className="field">
-              <label htmlFor="mpp">Metres / pixel</label>
+              <label className="tip" htmlFor="mpp" title={TIP.mpp}>Metres / pixel</label>
               <input id="mpp" type="number" min="0.01" step="0.1" value={metersPerPixel}
                      onChange={e => { const v = +e.target.value; if (v > 0) setMetersPerPixel(v) }} />
             </div>
@@ -154,13 +218,13 @@ export default function App() {
 
           <div className="section">
             <h2>Reference image</h2>
-            <label className={`check${refImage ? '' : ' disabled'}`}>
+            <label className={`check${refImage ? '' : ' disabled'}`} title={TIP.refShow}>
               <input type="checkbox" checked={refVisible && !!refImage} disabled={!refImage}
                      onChange={e => setRefVisible(e.target.checked)} />
               <span>Show uploaded mask</span>
             </label>
             <div className="field">
-              <label htmlFor="op">Opacity</label>
+              <label className="tip" htmlFor="op" title={TIP.refOpacity}>Opacity</label>
               <input id="op" type="range" min="0.05" max="1" step="0.05"
                      value={refOpacity} disabled={!refImage || !refVisible}
                      onChange={e => setRefOpacity(+e.target.value)} />
@@ -168,7 +232,9 @@ export default function App() {
             </div>
             {refImage && (
               <p className="hint">
-                {refImage.width}×{refImage.height} px scaled to the {ranDemSize ?? demSize} DEM square
+                {refImage.width}×{refImage.height} px spanning {(ranDemSize ?? demSize).toLocaleString()} wu wide
+                {refImage.width !== refImage.height &&
+                  ` × ${Math.round((ranDemSize ?? demSize) * refImage.height / refImage.width).toLocaleString()} wu tall`}
               </p>
             )}
           </div>
@@ -178,12 +244,11 @@ export default function App() {
               {running ? 'Running…' : 'Run'}
             </button>
             <button className="btn" disabled={!result}
-                    onClick={() => download('final_field_coordinates.xml', result.xml, 'application/xml')}>
+                    onClick={() => {
+                      trackEvent('xml_downloaded')
+                      download('final_field_coordinates.xml', result.xml, 'application/xml')
+                    }}>
               Download XML
-            </button>
-            <button className="btn" disabled={!result}
-                    onClick={() => download('debug.svg', result.svg, 'image/svg+xml')}>
-              Download debug SVG
             </button>
           </div>
 
@@ -191,15 +256,29 @@ export default function App() {
             <div className="section">
               <h2>Result</h2>
               <dl className="stats">
-                <dt>Fields</dt><dd>{stats.fields}</dd>
-                <dt>Islands</dt><dd>{stats.islands}</dd>
-                <dt>Bridges to boundary</dt><dd>{stats.bridgesToBoundary}</dd>
-                <dt>Island-to-island</dt><dd>{chained}</dd>
-                <dt>Bridge length</dt><dd>{stats.bridgeLength.toFixed(0)} wu</dd>
-                <dt>Output points</dt><dd>{stats.points.toLocaleString()}</dd>
-                <dt>Errors</dt>
+                <dt className="tip" title={TIP.fields}>Fields</dt>
+                <dd>{stats.fields}</dd>
+
+                <dt className="tip" title={TIP.islands}>Islands</dt>
+                <dd>{stats.islands}</dd>
+
+                <dt className="tip" title={TIP.toBoundary}>Bridges to boundary</dt>
+                <dd>{stats.bridgesToBoundary}</dd>
+
+                <dt className="tip" title={TIP.chained}>Island-to-island</dt>
+                <dd>{chained}</dd>
+
+                <dt className="tip" title={TIP.bridgeLength}>Bridge length</dt>
+                <dd>{stats.bridgeLength.toFixed(0)} wu</dd>
+
+                <dt className="tip" title={TIP.points}>Output points</dt>
+                <dd>{stats.points.toLocaleString()}</dd>
+
+                <dt className="tip" title={TIP.errors}>Errors</dt>
                 <dd className={stats.errors ? 'bad' : 'good'}>{stats.errors}</dd>
-                <dt>Elapsed</dt><dd>{stats.elapsedMs} ms</dd>
+
+                <dt className="tip" title={TIP.elapsed}>Elapsed</dt>
+                <dd>{stats.elapsedMs.toLocaleString()} ms ({(stats.elapsedMs / 1000).toFixed(2)} s)</dd>
               </dl>
             </div>
           )}
@@ -220,15 +299,20 @@ export default function App() {
 
         {/* ---------------- fields + log ---------------- */}
         <div className="col right">
-          <div className="section" style={{ flex: 'none' }}>
-            <h2>Fields {result ? `(${result.fields.length})` : ''}</h2>
+          <div className="panel-head">
+            <h2>
+              Fields {result ? `(${result.fields.length})` : ''}
+              {result && <span className="sub">{fmtHa(totalAreaM2)} ha</span>}
+            </h2>
           </div>
+
           <div className="list">
             {result?.fields.map(f => {
               const chain = f.bridges.filter(b => b.fromRing !== 0).length
               const err = f.issues.some(i => i.level === 'error')
               return (
                 <div key={f.id}
+                     ref={el => { el ? rowRefs.current.set(f.id, el) : rowRefs.current.delete(f.id) }}
                      className={`row${selected === f.id ? ' sel' : ''}${err ? ' err' : ''}`}
                      onClick={() => setSelected(selected === f.id ? null : f.id)}>
                   <span className="id">#{f.id}</span>
@@ -243,10 +327,11 @@ export default function App() {
               )
             })}
           </div>
-          <div className="section" style={{ flex: 'none', borderTop: '1px solid var(--rule)', borderBottom: 0 }}>
+
+          <div className="panel-head divider">
             <h2>Log</h2>
           </div>
-          <pre className="log" style={{ maxHeight: '34%' }}>
+          <pre className="log">
             {logs.map((l, i) => (
               <div key={i} className={/ERROR/.test(l) ? 'e' : /WARNING/.test(l) ? 'w' : ''}>{l}</div>
             ))}
@@ -254,6 +339,8 @@ export default function App() {
           </pre>
         </div>
       </div>
+
+      <PrivacyNotice open={privacyOpen} onClose={setPrivacyOpen} />
     </div>
   )
 }
