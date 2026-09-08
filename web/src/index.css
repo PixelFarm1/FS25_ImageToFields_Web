@@ -189,6 +189,15 @@ h2.tip { text-decoration-color: hsl(var(--muted-foreground) / 0.45); }
 }
 .field input[type='range']:hover::-webkit-slider-thumb { background: hsl(354 72% 46%); }
 
+.paintbox { margin-top: 4px; }
+.paintbox .btn { margin-bottom: 7px; }
+.paintrow {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: hsl(var(--muted-foreground));
+}
+.paintrow span { flex: 1; }
+.paintrow .linkbtn:disabled { opacity: .45; cursor: default; text-decoration: none; }
+
 /* ── Checkbox row ─────────────────────────────────────────────────────────── */
 .check {
   display: flex; align-items: center; gap: 8px;
@@ -265,6 +274,7 @@ h2.tip { text-decoration-color: hsl(var(--muted-foreground) / 0.45); }
 .canvas-wrap { flex: 1; position: relative; min-height: 0; background: hsl(var(--background)); }
 canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 canvas.dragging { cursor: grabbing; }
+canvas.painting { cursor: crosshair; }
 
 .legend {
   position: absolute; left: 12px; bottom: 12px;

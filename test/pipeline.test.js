@@ -14,6 +14,7 @@ import { runPipeline } from '../core/pipeline.js'
 import { area, signedArea2, properIntersect, pointInRing } from '../core/geom.js'
 import { signedDistance } from '../core/labelPoint.js'
 import { NUMBERING_ORDERS, RADIAL_CORNERS } from '../core/numbering.js'
+import { buildRegions, fieldsExtent } from '../core/regions.js'
 import { decomposeField } from '../audit.js'
 
 const NAMES = Object.keys(fixtures)
@@ -263,42 +264,6 @@ test('every numbering order produces ids 1..n exactly once', () => {
   }
 })
 
-test('chunks: each band is numbered through before the next begins', () => {
-  const count = 3
-  const fields = run('grid', { numbering: 'chunks', chunkCount: count }).fields
-  const ys = fields.map(f => f.centerY)
-  const minY = Math.min(...ys), maxY = Math.max(...ys)
-  const span = maxY - minY
-
-  let previousMax = 0
-  for (let c = 0; c < count; c++) {
-    const lo = minY + (span * c) / count
-    const hi = minY + (span * (c + 1)) / count
-    const bucket = f => Math.min(count - 1,
-      Math.max(0, Math.floor(((f.centerY - minY) / span) * count)))
-    const band = fields.filter(f => bucket(f) === c)
-    assert.ok(band.length > 0, `band ${c + 1} is empty`)
-
-    const ids = band.map(f => f.id).sort((a, b) => a - b)
-    assert.equal(ids[ids.length - 1] - ids[0] + 1, ids.length,
-      `band ${c + 1} ids are not contiguous: ${ids}`)
-    assert.ok(ids[0] > previousMax,
-      `band ${c + 1} starts at ${ids[0]}, overlapping the band above`)
-    previousMax = ids[ids.length - 1]
-  }
-})
-
-test('chunks: the count is honoured and clamped to its limits', () => {
-  const spread = n => {
-    const fields = run('grid', { numbering: 'chunks', chunkCount: n }).fields
-    return fields.map(f => f.id).sort((a, b) => a - b)
-  }
-  assert.deepEqual(spread(2), [1, 2, 3, 4, 5, 6, 7, 8, 9])
-  // Out-of-range values must not throw or drop fields.
-  assert.deepEqual(spread(999), [1, 2, 3, 4, 5, 6, 7, 8, 9])
-  assert.deepEqual(spread(0), [1, 2, 3, 4, 5, 6, 7, 8, 9])
-})
-
 test('radial: rings are numbered strictly outward from the chosen corner', () => {
   for (const corner of RADIAL_CORNERS) {
     const steps = 3
@@ -328,6 +293,52 @@ test('radial: rings are numbered strictly outward from the chosen corner', () =>
     assert.ok(dist(first) <= furthest / steps + 1e-6,
       `${corner}: field 1 is not in the innermost ring`)
   }
+})
+
+test('painted: strokes cut the map into regions, each a contiguous id block', () => {
+  // Two lines across the grid fixture, crossing near the middle: four regions.
+  const S = 4000
+  const strokes = [
+    [{ x: -S, y: 10 }, { x: 0, y: 40 }, { x: S, y: -20 }],
+    [{ x: 20, y: -S }, { x: -10, y: 0 }, { x: 40, y: S }],
+  ]
+  const fields = run('grid', { numbering: 'painted', strokes }).fields
+  const regions = buildRegions(strokes, fieldsExtent(
+    fields.map(f => ({ centerX: f.centerX, centerY: f.centerY, outer: f.rings[0] }))))
+  assert.ok(regions.count > 1, `expected the strokes to divide the map, got ${regions.count} region`)
+
+  const byRegion = new Map()
+  for (const f of fields) {
+    const label = regions.labelAt(f.centerX, f.centerY)
+    if (!byRegion.has(label)) byRegion.set(label, [])
+    byRegion.get(label).push(f.id)
+  }
+
+  let previousMax = 0
+  const inOrder = [...byRegion.values()].sort((a, b) => Math.min(...a) - Math.min(...b))
+  for (const ids of inOrder) {
+    const sorted = [...ids].sort((a, b) => a - b)
+    assert.equal(sorted[sorted.length - 1] - sorted[0] + 1, sorted.length,
+      `region ids are not contiguous: ${sorted}`)
+    assert.ok(sorted[0] > previousMax, `region starting at ${sorted[0]} overlaps the previous one`)
+    previousMax = sorted[sorted.length - 1]
+  }
+})
+
+test('painted: with nothing drawn it is plain radial numbering', () => {
+  const withNone = run('grid', { numbering: 'painted', strokes: [] }).fields
+  const plain = run('grid', { numbering: 'radial' }).fields
+  const ids = f => f.map(x => x.id)
+  assert.deepEqual(ids(withNone), ids(plain))
+})
+
+test('painted: a stroke that divides nothing leaves one region', () => {
+  // A short stub in the middle reaches no edge, so both sides stay connected.
+  const fields = run('grid', {
+    numbering: 'painted', strokes: [[{ x: -20, y: 0 }, { x: 20, y: 0 }]],
+  }).fields
+  const ids = fields.map(f => f.id).sort((a, b) => a - b)
+  assert.deepEqual(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9])
 })
 
 test('the exported XML declares an origin inside its own field', () => {

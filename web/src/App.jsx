@@ -5,7 +5,7 @@ import PrivacyNotice from './PrivacyNotice.jsx'
 import { trackEvent } from './analytics.js'
 import {
   NUMBERING_ORDERS, NUMBERING_LABELS,
-  CHUNK_COUNT, RADIAL_STEPS, RADIAL_CORNERS, RADIAL_CORNER_LABELS,
+  RADIAL_STEPS, RADIAL_CORNERS, RADIAL_CORNER_LABELS,
 } from '../../core/numbering.js'
 // The importer script ships with the coordinates: the XML is useless in the
 // Giants Editor without it, and telling people to go and find it in the
@@ -28,10 +28,11 @@ const TIP = {
   clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
              'leaving machinery the same clearance around a tree island as at the field edge. ' +
              '0 traces the mask exactly.',
-  chunkCount: 'How many equal horizontal bands to split the fields into. Every field in the ' +
-              'top band is numbered before any field in the next one, and each band is read ' +
-              'top-left to bottom-right.',
   radialCorner: 'The corner the numbering grows out from.',
+  paint: 'Draw lines across the map — along roads, rivers, however you already think about it ' +
+         '— and the areas between them become regions. Fields are numbered region by region, ' +
+         'outward from a corner within each. A line has to reach the edge of the map, or ' +
+         'another line, to actually divide anything.',
   radialSteps: 'How many rings the distance from that corner is divided into. Fields in the ' +
                'innermost ring are numbered first; within a ring the numbering sweeps round ' +
                'the arc, so more rings means the order follows distance more closely.',
@@ -86,8 +87,9 @@ export default function App() {
   const [simplification, setSimplification] = useState(0.7)
   const [clearance, setClearance] = useState(0)
   const [unitsPerPixel, setUnitsPerPixel] = useState(1)
-  const [numbering, setNumbering] = useState('rows')
-  const [chunkCount, setChunkCount] = useState(CHUNK_COUNT.default)
+  const [numbering, setNumbering] = useState('radial')
+  const [strokes, setStrokes] = useState([])
+  const [painting, setPainting] = useState(false)
   const [radialCorner, setRadialCorner] = useState('nw')
   const [radialSteps, setRadialSteps] = useState(RADIAL_STEPS.default)
 
@@ -169,15 +171,15 @@ export default function App() {
     if (!file || running) return
     setRunning(true); setResult(null); setSelected(null); setLogs([])
     setRanDemSize(demSize)
-    trackEvent('pipeline_started', { demSize, simplification, clearance, numbering })
+    trackEvent('pipeline_started', { demSize, simplification, clearance, numbering, strokes: strokes.length })
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
       { type: 'RUN', imageBuffer: buffer,
         options: { demSize, simplification, clearance, unitsPerPixel,
-                   numbering, chunkCount, radialCorner, radialSteps } },
+                   numbering, radialCorner, radialSteps, strokes } },
       [buffer])
   }, [file, running, demSize, simplification, clearance, unitsPerPixel,
-      numbering, chunkCount, radialCorner, radialSteps])
+      numbering, radialCorner, radialSteps, strokes])
 
   function pick(f) {
     if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
@@ -263,19 +265,6 @@ export default function App() {
               </select>
             </div>
 
-            {numbering === 'chunks' && (
-              <div className="field">
-                <label className="tip" htmlFor="chunks" title={TIP.chunkCount}>Chunks</label>
-                <input id="chunks" type="number" inputMode="numeric"
-                       min={CHUNK_COUNT.min} max={CHUNK_COUNT.max} step="1" value={chunkCount}
-                       onChange={e => {
-                         const v = parseInt(e.target.value, 10)
-                         if (Number.isFinite(v)) {
-                           setChunkCount(Math.max(CHUNK_COUNT.min, Math.min(CHUNK_COUNT.max, v)))
-                         }
-                       }} />
-              </div>
-            )}
 
             {numbering === 'radial' && (
               <>
@@ -300,6 +289,29 @@ export default function App() {
                          }} />
                 </div>
               </>
+            )}
+
+            {numbering === 'painted' && (
+              <div className="paintbox">
+                <button
+                  className={`btn${painting ? ' primary' : ''}`}
+                  title={TIP.paint}
+                  onClick={() => setPainting(p => !p)}>
+                  {painting ? 'Done painting' : 'Paint regions'}
+                </button>
+                <div className="paintrow">
+                  <span>{strokes.length === 0
+                    ? 'No lines yet'
+                    : `${strokes.length} line${strokes.length > 1 ? 's' : ''}`}</span>
+                  <button className="linkbtn" disabled={!strokes.length}
+                          onClick={() => setStrokes(s => s.slice(0, -1))}>Undo</button>
+                  <button className="linkbtn" disabled={!strokes.length}
+                          onClick={() => setStrokes([])}>Clear</button>
+                </div>
+                {painting && (
+                  <p className="hint">Drag to draw a dividing line. Middle-drag pans, wheel zooms.</p>
+                )}
+              </div>
             )}
           </div>
 
@@ -382,6 +394,9 @@ export default function App() {
             refVisible={refVisible}
             refOpacity={refOpacity}
             refDemSize={ranDemSize ?? demSize}
+            drawing={painting && numbering === 'painted'}
+            strokes={numbering === 'painted' ? strokes : []}
+            onStroke={points => setStrokes(s => [...s, points])}
           />
         </div>
 

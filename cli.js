@@ -19,8 +19,8 @@ import { auditXML } from './audit.js'
 function parseArgs(argv) {
   const opt = {
     input: null, out: 'out', demSize: 2048, simplification: 0.7,
-    clearance: 0, unitsPerPixel: 1, numbering: 'rows',
-    chunkCount: 4, radialCorner: 'nw', radialSteps: 6,
+    clearance: 0, unitsPerPixel: 1, numbering: 'radial',
+    radialCorner: 'nw', radialSteps: 20,
     svg: true, quiet: false, audit: null,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -32,7 +32,6 @@ function parseArgs(argv) {
     // --mpp stays accepted as the old spelling of the same option.
     else if (a === '--upp' || a === '--mpp') opt.unitsPerPixel = parseInt(next(), 10)
     else if (a === '--numbering') opt.numbering = next()
-    else if (a === '--chunks') opt.chunkCount = parseInt(next(), 10)
     else if (a === '--corner') opt.radialCorner = next()
     else if (a === '--rings') opt.radialSteps = parseInt(next(), 10)
     else if (a === '--out') opt.out = next()
@@ -56,10 +55,9 @@ Options
   --simplify <f>     RDP tolerance                    default 0.7
   --clearance <f>    border reduction / island clearance, world units   default 0
   --upp <n>          world units per source pixel, for area reporting   default 1
-  --numbering <o>    field id order: rows|columns|chunks|radial|area|source  default rows
-  --chunks <n>       bands for --numbering chunks (2-20)          default 4
-  --corner <c>       corner for --numbering radial: nw|ne|sw|se   default nw
-  --rings <n>        rings for --numbering radial (2-20)          default 6
+  --numbering <o>    field id order: radial|rows|columns|area|source  default radial
+  --corner <c>       corner for --numbering radial: nw|ne|sw|se      default nw
+  --rings <n>        rings for --numbering radial (2-40)             default 20
   --out <dir>        output directory                 default ./out
   --no-svg           skip the debug SVG
   -q, --quiet        only print the summary
@@ -115,7 +113,7 @@ async function main() {
     options: {
       demSize: opt.demSize, simplification: opt.simplification,
       clearance: opt.clearance, unitsPerPixel: opt.unitsPerPixel,
-      numbering: opt.numbering, chunkCount: opt.chunkCount,
+      numbering: opt.numbering,
       radialCorner: opt.radialCorner, radialSteps: opt.radialSteps,
     },
     stats: result.stats,

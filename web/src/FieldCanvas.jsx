@@ -89,6 +89,9 @@ const COL = {
   chain: '#7C3AED',
   labelBg: 'rgba(27,67,50,0.88)',
   labelText: '#F0FAF5',
+  // Region strokes: orange, so they never read as another thin red field edge.
+  stroke: '#EA580C',
+  strokeDraft: '#FB923C',
 }
 
 /**
@@ -100,6 +103,7 @@ const COL = {
 export default function FieldCanvas({
   fields, selected, onSelect,
   refImage = null, refVisible = false, refOpacity = 0.35, refDemSize = 2048,
+  drawing = false, strokes = [], onStroke = null,
 }) {
   const ref = useRef(null)
   // `moved` accumulates pointer travel since mousedown. A press that travelled
@@ -110,6 +114,9 @@ export default function FieldCanvas({
     tx: 0, ty: 0, scale: 1,
     drag: false, lx: 0, ly: 0, moved: 0, fitted: false,
   })
+  // The stroke being drawn right now, in world coordinates. Held in a ref so
+  // every pointer move repaints without a React render per sample.
+  const draftRef = useRef([])
 
   const draw = useCallback(() => {
     const canvas = ref.current
@@ -197,6 +204,23 @@ export default function FieldCanvas({
       }
     }
 
+    // Painted region dividers, over the fields they cut between.
+    const drawStroke = (points, colour) => {
+      if (points.length < 2) return
+      ctx.beginPath()
+      ctx.moveTo(tx + points[0].x * scale, ty + points[0].y * scale)
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(tx + points[i].x * scale, ty + points[i].y * scale)
+      }
+      ctx.strokeStyle = colour
+      ctx.lineWidth = 3.5
+      ctx.lineJoin = 'round'
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    }
+    for (const s of strokes) drawStroke(s, COL.stroke)
+    if (draftRef.current.length > 1) drawStroke(draftRef.current, COL.strokeDraft)
+
     // Rounded rind-green chips, as in the main app's canvas.
     if (scale > 0.08) {
       ctx.font = '600 11px "Inter Variable", Inter, sans-serif'
@@ -228,7 +252,7 @@ export default function FieldCanvas({
         ctx.fillText(text, x, y + 0.5)
       }
     }
-  }, [fields, selected, refImage, refVisible, refOpacity, refDemSize])
+  }, [fields, selected, refImage, refVisible, refOpacity, refDemSize, strokes])
 
   // --- camera -------------------------------------------------------------
   // Held in refs so a running tween always calls the current draw and is not
@@ -413,9 +437,18 @@ export default function FieldCanvas({
     draw()
   }
 
-  function onDown(e) {
-    if (e.button !== 0) return
-    stopAnimation()
+  /** Pointer position in world coordinates. */
+  function toWorld(e) {
+    const rect = ref.current.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    const { tx, ty, scale } = view.current
+    return {
+      x: ((e.clientX - rect.left) * dpr - tx) / scale,
+      y: ((e.clientY - rect.top) * dpr - ty) / scale,
+    }
+  }
+
+  function startPan(e) {
     const v = view.current
     v.drag = true
     v.lx = e.clientX; v.ly = e.clientY
@@ -423,7 +456,35 @@ export default function FieldCanvas({
     ref.current.classList.add('dragging')
     ref.current.setPointerCapture?.(e.pointerId)
   }
+
+  function onDown(e) {
+    stopAnimation()
+    // Middle-drag always pans, so the map can still be moved without leaving
+    // paint mode part-way through drawing a boundary.
+    if (e.button === 1) { e.preventDefault(); startPan(e); return }
+    if (e.button !== 0) return
+
+    if (drawing) {
+      draftRef.current = [toWorld(e)]
+      ref.current.setPointerCapture?.(e.pointerId)
+      return
+    }
+    startPan(e)
+  }
+
   function onMove(e) {
+    if (draftRef.current.length) {
+      const p = toWorld(e)
+      const last = draftRef.current[draftRef.current.length - 1]
+      // Thin the samples: a stroke does not need a point per pixel of travel,
+      // and the region raster cannot resolve them anyway.
+      if (Math.hypot(p.x - last.x, p.y - last.y) * view.current.scale >= 3) {
+        draftRef.current.push(p)
+        draw()
+      }
+      return
+    }
+
     const v = view.current
     if (!v.drag) return
     const dx = e.clientX - v.lx, dy = e.clientY - v.ly
@@ -434,7 +495,17 @@ export default function FieldCanvas({
     v.lx = e.clientX; v.ly = e.clientY
     draw()
   }
+
   function onUp(e) {
+    if (draftRef.current.length) {
+      const points = draftRef.current
+      draftRef.current = []
+      ref.current?.releasePointerCapture?.(e?.pointerId)
+      // A click without travel is not a boundary.
+      if (points.length > 1) onStroke?.(points)
+      else draw()
+      return
+    }
     const v = view.current
     if (!v.drag) return
     v.drag = false
@@ -444,7 +515,8 @@ export default function FieldCanvas({
 
   function onClick(e) {
     // A pan ends in a click event too; only treat it as a selection if the
-    // pointer effectively stayed put.
+    // pointer effectively stayed put. Paint mode never selects.
+    if (drawing) return
     if (view.current.moved > DRAG_SLOP) { view.current.moved = 0; return }
     if (!fields?.length) return
 
@@ -476,6 +548,8 @@ export default function FieldCanvas({
     <div className="canvas-wrap">
       <canvas
         ref={ref}
+        className={drawing ? 'painting' : undefined}
+        onContextMenu={e => e.preventDefault()}
         onWheel={onWheel}
         onPointerDown={onDown}
         onPointerMove={onMove}

@@ -24,14 +24,14 @@ export const DEFAULT_OPTIONS = {
   clearance: 0,
   /** World units one source pixel covers. Affects reported areas only. */
   unitsPerPixel: 1,
-  /** Field id order: 'rows' | 'columns' | 'chunks' | 'radial' | 'area' | 'source'. */
-  numbering: 'rows',
-  /** Horizontal bands, for numbering: 'chunks'. */
-  chunkCount: 4,
-  /** Corner to grow rings from, for numbering: 'radial'. */
+  /** Field id order — see core/numbering.js NUMBERING_ORDERS. */
+  numbering: 'radial',
+  /** Corner to grow rings from, for numbering: 'radial' | 'painted'. */
   radialCorner: 'nw',
-  /** Ring count, for numbering: 'radial'. */
-  radialSteps: 6,
+  /** Ring count, for numbering: 'radial' | 'painted'. */
+  radialSteps: 20,
+  /** World-space polylines dividing the map, for numbering: 'painted'. */
+  strokes: [],
 }
 
 /**

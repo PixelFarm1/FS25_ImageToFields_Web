@@ -15,20 +15,20 @@
  * field, and rows are then read across.
  */
 import { bbox, area } from './geom.js'
+import { buildRegions, fieldsExtent } from './regions.js'
 
-export const NUMBERING_ORDERS = ['rows', 'columns', 'chunks', 'radial', 'area', 'source']
+export const NUMBERING_ORDERS = ['radial', 'painted', 'rows', 'columns', 'area', 'source']
 
 export const NUMBERING_LABELS = {
+  radial: 'Outward from a corner',
+  painted: 'Outward, within painted regions',
   rows: 'Top-left to bottom-right',
   columns: 'Top-left, down each column',
-  chunks: 'In chunks, top to bottom',
-  radial: 'Outward from a corner',
   area: 'Largest field first',
   source: 'Detection order',
 }
 
-export const CHUNK_COUNT = { min: 2, max: 20, default: 4 }
-export const RADIAL_STEPS = { min: 2, max: 20, default: 6 }
+export const RADIAL_STEPS = { min: 2, max: 40, default: 20 }
 
 export const RADIAL_CORNERS = ['nw', 'ne', 'sw', 'se']
 export const RADIAL_CORNER_LABELS = {
@@ -48,24 +48,6 @@ function fieldExtent(fields) {
     if (f.centerY > maxY) maxY = f.centerY
   }
   return { minX, maxX, minY, maxY }
-}
-
-/**
- * Equal horizontal bands, numbered top band first, each band read top-left to
- * bottom-right. Unlike `rows`, the band count is the user's choice rather than
- * derived from field sizes, so the numbering can be lined up with however the
- * map is actually worked on.
- *
- * The bands span the area the fields occupy rather than the whole DEM, so every
- * chunk holds fields instead of some coming out empty when the fields sit in
- * the middle of the map.
- */
-function chunked(fields, count) {
-  const { minY, maxY } = fieldExtent(fields)
-  const span = maxY - minY || 1
-
-  const buckets = bucketise(fields, count, f => (f.centerY - minY) / span)
-  return buckets.flatMap(band => banded(band, 'rows'))
 }
 
 /**
@@ -168,6 +150,38 @@ function banded(fields, order) {
 }
 
 /**
+ * Fields grouped by painted region, each region numbered outward from its own
+ * near corner, and the regions themselves visited outward from the map corner.
+ *
+ * Each region gets a fresh 1..n radial pattern rather than sharing one origin
+ * with the whole map: a far region measured from the map corner would have all
+ * its fields at nearly the same distance, collapsing into a single ring and
+ * losing the outward feel the numbering is for.
+ */
+function painted(fields, regions, corner, steps) {
+  if (!regions || regions.count < 2) return radial(fields, corner, steps)
+
+  const groups = new Map()
+  for (const f of fields) {
+    const r = regions.labelAt(f.centerX, f.centerY)
+    if (!groups.has(r)) groups.set(r, [])
+    groups.get(r).push(f)
+  }
+
+  const { minX, maxX, minY, maxY } = fieldExtent(fields)
+  const ox = corner[1] === 'w' ? minX : maxX
+  const oy = corner[0] === 'n' ? minY : maxY
+  const fromCorner = label => {
+    const c = regions.centroid(label)
+    return Math.hypot(c.x - ox, c.y - oy)
+  }
+
+  return [...groups.keys()]
+    .sort((a, b) => fromCorner(a) - fromCorner(b))
+    .flatMap(label => radial(groups.get(label), corner, steps))
+}
+
+/**
  * Reassign field ids in the requested order.
  *
  * Runs before the remaining stages so the ids in the log, in the field list and
@@ -186,15 +200,22 @@ export function renumberFields(fields, options = {}, log = () => {}) {
 
   if (order === 'area') {
     sorted = [...fields].sort((a, b) => area(b.outer) - area(a.outer))
-  } else if (order === 'chunks') {
-    const count = clamp(options.chunkCount, CHUNK_COUNT)
-    sorted = chunked(fields, count)
-    detail = ` (${count} chunks)`
-  } else if (order === 'radial') {
+  } else if (order === 'radial' || order === 'painted') {
     const corner = RADIAL_CORNERS.includes(options.radialCorner) ? options.radialCorner : 'nw'
     const steps = clamp(options.radialSteps, RADIAL_STEPS)
-    sorted = radial(fields, corner, steps)
-    detail = ` (${RADIAL_CORNER_LABELS[corner].toLowerCase()}, ${steps} rings)`
+    const from = `${RADIAL_CORNER_LABELS[corner].toLowerCase()}, ${steps} rings`
+
+    if (order === 'painted') {
+      const strokes = options.strokes ?? []
+      const regions = strokes.length ? buildRegions(strokes, fieldsExtent(fields)) : null
+      sorted = painted(fields, regions, corner, steps)
+      detail = regions && regions.count > 1
+        ? ` (${regions.count} painted regions; ${from})`
+        : ` (${from}) — nothing painted divides the map, so it is all one region`
+    } else {
+      sorted = radial(fields, corner, steps)
+      detail = ` (${from})`
+    }
   } else {
     sorted = banded(fields, order)
   }
