@@ -8,3 +8,7 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// The app started, so the stale-cache recovery in index.html is armed again for
+// the next deploy rather than spent for the rest of the session.
+try { sessionStorage.removeItem('itf.staleReload') } catch { /* private mode */ }

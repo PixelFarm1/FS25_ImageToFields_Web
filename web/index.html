@@ -12,6 +12,30 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="FS25 Image to Fields" />
     <meta property="og:description" content="Convert a field mask image into Farming Simulator 25 field coordinates for the Giants Editor. Runs entirely in your browser — nothing is uploaded." />
+    <script>
+      // Recover from a stale cached page.
+      //
+      // Each deploy replaces the hashed asset files, and the old ones stop
+      // existing — but GitHub Pages tells browsers to cache index.html for ten
+      // minutes, and its headers are not ours to change. A page held in that
+      // cache asks for a bundle that is gone, gets a 404, and shows nothing.
+      //
+      // A failed script or stylesheet fires an error event in the capture
+      // phase, so this reacts to the actual failure rather than guessing with a
+      // timer that a slow connection would trip. Reloading revalidates the
+      // document and picks up the current asset names. The flag makes it happen
+      // at most once, so a genuine boot failure cannot become a reload loop;
+      // main.jsx clears it once the app is up.
+      addEventListener('error', function (event) {
+        var el = event.target
+        if (!el || (el.tagName !== 'SCRIPT' && el.tagName !== 'LINK')) return
+        try {
+          if (sessionStorage.getItem('itf.staleReload')) return
+          sessionStorage.setItem('itf.staleReload', '1')
+        } catch (e) { return }
+        location.reload()
+      }, true)
+    </script>
   </head>
   <body>
     <div id="root"></div>
