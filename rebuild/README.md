@@ -99,6 +99,17 @@ identical code with no branch between them. The canvas draws the ring structure
 rather than the flattened polygon, so a bridge crossing an island is visible
 immediately instead of surfacing in the editor.
 
+**Reference overlay.** *Reference image* draws the uploaded mask underneath the
+vectors, with a toggle and an opacity slider, so simplification can be judged
+against the raster it came from. The mask always covers a `demSize` square
+centred on the world origin — `toWorld` divides by `ratio = imageWidth /
+demSize`, so pixel (0,0) lands at `(-demSize/2, -demSize/2)` regardless of the
+image's pixel dimensions — which means a 1024 mask and an 8192 mask register
+identically at the same DEM setting. Once a result is on screen the overlay uses
+the DEM size that result was produced with, so moving the slider afterwards
+cannot slide it out of register. Smoothing is off when magnified, so the pixel
+staircase stays visible under the simplified outline.
+
 ## Tests
 
 ```bash

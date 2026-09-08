@@ -24,7 +24,10 @@ const COL = {
  * canvas drew only the stitched polygon, which is exactly why a bridge running
  * across an island was invisible until it reached the editor.
  */
-export default function FieldCanvas({ fields, selected, onSelect }) {
+export default function FieldCanvas({
+  fields, selected, onSelect,
+  refImage = null, refVisible = false, refOpacity = 0.35, refDemSize = 2048,
+}) {
   const ref = useRef(null)
   const view = useRef({ tx: 0, ty: 0, scale: 1, drag: false, lx: 0, ly: 0, fitted: false })
 
@@ -48,6 +51,27 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
       for (let x = ((tx % step) + step) % step; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H) }
       for (let y = ((ty % step) + step) % step; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y) }
       ctx.stroke()
+    }
+
+    // Reference mask, underneath the vectors.
+    //
+    // toWorld maps a pixel through ratio = imageWidth / demSize, so pixel (0,0)
+    // lands at world (-demSize/2, -demSize/2) and the far corner at
+    // (+demSize/2, +demSize/2): the mask always covers a demSize square centred
+    // on the origin, whatever its pixel dimensions. Only demSize is needed here,
+    // and a 1024 mask lines up with an 8192 one at the same DEM setting.
+    if (refVisible && refImage) {
+      const half = refDemSize / 2
+      ctx.save()
+      ctx.globalAlpha = refOpacity
+      // Crisp pixels when magnified, so the staircase the simplifier is being
+      // judged against stays visible; smoothed when minified, to avoid aliasing.
+      ctx.imageSmoothingEnabled = scale < 1
+      ctx.drawImage(
+        refImage,
+        tx - half * scale, ty - half * scale,
+        refDemSize * scale, refDemSize * scale)
+      ctx.restore()
     }
 
     if (!fields?.length) return
@@ -127,18 +151,24 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
         ctx.fillText(text, x, y + 0.5)
       }
     }
-  }, [fields, selected])
+  }, [fields, selected, refImage, refVisible, refOpacity, refDemSize])
 
   const fit = useCallback(() => {
     const canvas = ref.current
-    if (!canvas || !fields?.length) return
+    if (!canvas) return
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const f of fields) {
+    for (const f of fields ?? []) {
       for (const p of f.rings?.[0] ?? []) {
         const x = f.centerX + p.x, y = f.centerY + p.y
         if (x < minX) minX = x; if (x > maxX) maxX = x
         if (y < minY) minY = y; if (y > maxY) maxY = y
       }
+    }
+    // With no result yet, frame the reference mask so it can be inspected on
+    // its own before a run.
+    if (!isFinite(minX) && refImage && refVisible) {
+      const half = refDemSize / 2
+      minX = minY = -half; maxX = maxY = half
     }
     if (!isFinite(minX)) return
     const pad = 40
@@ -149,7 +179,9 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
     view.current.tx = canvas.width / 2 - ((minX + maxX) / 2) * scale
     view.current.ty = canvas.height / 2 - ((minY + maxY) / 2) * scale
     draw()
-  }, [fields, draw])
+  }, [fields, draw, refImage, refVisible, refDemSize])
+
+  const hasContent = !!fields?.length || (!!refImage && refVisible)
 
   // Resize to the element's real pixel size, then redraw.
   useEffect(() => {
@@ -160,14 +192,14 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
       const dpr = window.devicePixelRatio || 1
       canvas.width = Math.round(r.width * dpr)
       canvas.height = Math.round(r.height * dpr)
-      if (!view.current.fitted && fields?.length) { view.current.fitted = true; fit() }
+      if (!view.current.fitted && hasContent) { view.current.fitted = true; fit() }
       else draw()
     }
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
     return () => ro.disconnect()
-  }, [draw, fit, fields])
+  }, [draw, fit, hasContent])
 
   // A fresh result should re-fit rather than keep the previous viewport.
   useEffect(() => {
@@ -175,6 +207,15 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
     if (fields?.length) { view.current.fitted = true; fit() }
     else draw()
   }, [fields, fit, draw])
+
+  // Toggling the reference on with nothing else drawn should frame it, but an
+  // opacity change — or a toggle while a result is on screen — must not move
+  // the viewport the user has set up for comparison.
+  useEffect(() => {
+    if (!refVisible || !refImage || fields?.length) { draw(); return }
+    if (!view.current.fitted) { view.current.fitted = true; fit() }
+    else draw()
+  }, [refVisible, refImage, refOpacity, refDemSize, fields, fit, draw])
 
   // Centre the selected field without changing zoom.
   useEffect(() => {
@@ -247,7 +288,7 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
         onMouseLeave={onUp}
         onClick={onClick}
       />
-      {!fields?.length && (
+      {!fields?.length && !(refImage && refVisible) && (
         <div className="empty">Drop a field mask and press Run.<br />Scroll to zoom, drag to pan.</div>
       )}
       {!!fields?.length && (

@@ -24,8 +24,17 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [over, setOver] = useState(false)
 
+  // Reference underlay: the uploaded mask, drawn beneath the vectors.
+  const [refImage, setRefImage] = useState(null)
+  const [refVisible, setRefVisible] = useState(true)
+  const [refOpacity, setRefOpacity] = useState(0.4)
+  // The DEM size the on-screen result was produced with. Using the live slider
+  // instead would slide the underlay out of register the moment it changed.
+  const [ranDemSize, setRanDemSize] = useState(null)
+
   const worker = useRef(null)
   const logEnd = useRef(null)
+  const liveBitmap = useRef(null)
 
   useEffect(() => {
     worker.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
@@ -46,9 +55,31 @@ export default function App() {
 
   useEffect(() => { logEnd.current?.scrollIntoView({ block: 'end' }) }, [logs])
 
+  // Decode the mask once for the underlay. An ImageBitmap draws far faster than
+  // an <img> when it is redrawn on every pan frame, which matters at 8192².
+  // The live bitmap is tracked in a ref so the previous one can be released
+  // without putting a side effect inside a state updater.
+  useEffect(() => {
+    if (!file) {
+      liveBitmap.current?.close?.()
+      liveBitmap.current = null
+      setRefImage(null)
+      return
+    }
+    let cancelled = false
+    createImageBitmap(file).then(bmp => {
+      if (cancelled) { bmp.close?.(); return }
+      liveBitmap.current?.close?.()
+      liveBitmap.current = bmp
+      setRefImage(bmp)
+    }).catch(() => { if (!cancelled) setRefImage(null) })
+    return () => { cancelled = true }
+  }, [file])
+
   const run = useCallback(async () => {
     if (!file || running) return
     setRunning(true); setResult(null); setSelected(null); setLogs([])
+    setRanDemSize(demSize)
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
       { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, metersPerPixel } },
@@ -122,6 +153,27 @@ export default function App() {
           </div>
 
           <div className="section">
+            <h2>Reference image</h2>
+            <label className={`check${refImage ? '' : ' disabled'}`}>
+              <input type="checkbox" checked={refVisible && !!refImage} disabled={!refImage}
+                     onChange={e => setRefVisible(e.target.checked)} />
+              <span>Show uploaded mask</span>
+            </label>
+            <div className="field">
+              <label htmlFor="op">Opacity</label>
+              <input id="op" type="range" min="0.05" max="1" step="0.05"
+                     value={refOpacity} disabled={!refImage || !refVisible}
+                     onChange={e => setRefOpacity(+e.target.value)} />
+              <span className="val">{refOpacity.toFixed(2)}</span>
+            </div>
+            {refImage && (
+              <p className="hint">
+                {refImage.width}×{refImage.height} px scaled to the {ranDemSize ?? demSize} DEM square
+              </p>
+            )}
+          </div>
+
+          <div className="section">
             <button className="btn primary" onClick={run} disabled={!file || running}>
               {running ? 'Running…' : 'Run'}
             </button>
@@ -155,7 +207,15 @@ export default function App() {
 
         {/* ---------------- canvas ---------------- */}
         <div className="col">
-          <FieldCanvas fields={result?.fields} selected={selected} onSelect={setSelected} />
+          <FieldCanvas
+            fields={result?.fields}
+            selected={selected}
+            onSelect={setSelected}
+            refImage={refImage}
+            refVisible={refVisible}
+            refOpacity={refOpacity}
+            refDemSize={ranDemSize ?? demSize}
+          />
         </div>
 
         {/* ---------------- fields + log ---------------- */}
