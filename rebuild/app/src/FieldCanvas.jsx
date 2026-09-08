@@ -1,16 +1,21 @@
 import { useEffect, useRef, useCallback } from 'react'
 
+// Watermelon UI, matching web/src/components/FieldCanvas.jsx: warm cream ground,
+// flesh-red field boundaries, rind-green labels. The three overlay hues are new
+// — the old canvas drew only the flattened polygon, so islands and bridges had
+// no colours of their own — and are picked to stay legible against the cream.
 const COL = {
-  bg: '#101613',
-  grid: '#1b241f',
-  fill: 'rgba(82,183,136,0.10)',
-  fillBad: 'rgba(242,112,122,0.13)',
-  outer: '#52b788',
-  outerBad: '#f2707a',
-  island: '#e0a44e',
-  bridge: '#6aa9ff',
-  chain: '#34d3c8',
-  label: '#9fb3a7',
+  bg: '#FDF8F5',
+  grid: '#EDD5CF',
+  fill: 'rgba(230,57,70,0.07)',
+  fillBad: 'rgba(230,57,70,0.18)',
+  outer: '#E63946',
+  outerBad: '#7F1D1D',
+  island: '#1B4332',
+  bridge: '#1D4ED8',
+  chain: '#7C3AED',
+  labelBg: 'rgba(27,67,50,0.88)',
+  labelText: '#F0FAF5',
 }
 
 /**
@@ -33,10 +38,12 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
     ctx.fillStyle = COL.bg
     ctx.fillRect(0, 0, W, H)
 
-    const step = 50 * scale
+    // Same 40-unit grid and hairline weight as the main app's canvas; the
+    // guard just stops the loop from running away when zoomed far out.
+    const step = 40 * scale
     if (step > 8) {
       ctx.strokeStyle = COL.grid
-      ctx.lineWidth = 1
+      ctx.lineWidth = 0.5
       ctx.beginPath()
       for (let x = ((tx % step) + step) % step; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H) }
       for (let y = ((ty % step) + step) % step; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y) }
@@ -92,14 +99,32 @@ export default function FieldCanvas({ fields, selected, onSelect }) {
       }
     }
 
+    // Rounded rind-green chips, as in the main app's canvas.
     if (scale > 0.08) {
-      ctx.fillStyle = COL.label
-      ctx.font = '11px system-ui, sans-serif'
+      ctx.font = '600 11px "Inter Variable", Inter, sans-serif'
       ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
       for (const f of fields) {
-        const [x, y] = [tx + f.centerX * scale, ty + f.centerY * scale]
+        const x = tx + f.centerX * scale, y = ty + f.centerY * scale
         if (x < -40 || y < -40 || x > W + 40 || y > H + 40) continue
-        ctx.fillText(String(f.id), x, y)
+
+        const text = String(f.id)
+        const w = ctx.measureText(text).width + 12
+        const h = 17, r = 4
+        const rx = x - w / 2, ry = y - h / 2
+
+        ctx.fillStyle = COL.labelBg
+        ctx.beginPath()
+        ctx.moveTo(rx + r, ry)
+        ctx.arcTo(rx + w, ry, rx + w, ry + h, r)
+        ctx.arcTo(rx + w, ry + h, rx, ry + h, r)
+        ctx.arcTo(rx, ry + h, rx, ry, r)
+        ctx.arcTo(rx, ry, rx + w, ry, r)
+        ctx.closePath()
+        ctx.fill()
+
+        ctx.fillStyle = COL.labelText
+        ctx.fillText(text, x, y + 0.5)
       }
     }
   }, [fields, selected])
