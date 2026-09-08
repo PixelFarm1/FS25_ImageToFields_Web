@@ -63,7 +63,8 @@ export function renderDebugSVG(fields, { padding = 40, labels = true } = {}) {
 
     if (labels) {
       parts.push(
-        `<text x="${f.centerX.toFixed(2)}" y="${f.centerY.toFixed(2)}" font-size="${stroke * 12}" ` +
+        `<text x="${(f.centerX + (f.labelX ?? 0)).toFixed(2)}" ` +
+        `y="${(f.centerY + (f.labelY ?? 0)).toFixed(2)}" font-size="${stroke * 12}" ` +
         `font-weight="600" text-anchor="middle" fill="${C.label}">${ESC(`#${f.id}`)}</text>`)
     }
   }

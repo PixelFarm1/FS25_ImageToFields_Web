@@ -34,6 +34,8 @@ self.onmessage = async (e) => {
       part: f.part,
       centerX: f.centerX,
       centerY: f.centerY,
+      labelX: f.labelX,
+      labelY: f.labelY,
       areaM2: f.areaM2,
       islandCount: f.islandCount,
       pointCount: f.coordinates.length,

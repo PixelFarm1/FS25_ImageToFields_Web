@@ -203,7 +203,10 @@ export default function FieldCanvas({
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       for (const f of fields) {
-        const x = tx + f.centerX * scale, y = ty + f.centerY * scale
+        // The pole of inaccessibility, not the centroid — on a crescent or a
+        // field wrapped around a lake the centroid sits outside the field.
+        const x = tx + (f.centerX + (f.labelX ?? 0)) * scale
+        const y = ty + (f.centerY + (f.labelY ?? 0)) * scale
         if (x < -40 || y < -40 || x > W + 40 || y > H + 40) continue
 
         const text = String(f.id)
@@ -461,7 +464,8 @@ export default function FieldCanvas({
         const inIsland = f.rings.slice(1).some(r => pointInRing(local, r))
         if (!inIsland) { hit = f; break }
       }
-      const d = Math.hypot(f.centerX - wx, f.centerY - wy)
+      const d = Math.hypot(f.centerX + (f.labelX ?? 0) - wx,
+                           f.centerY + (f.labelY ?? 0) - wy)
       if (d < bd) { bd = d; best = f }
     }
     const picked = hit ?? (bd * scale < 60 ? best : null)

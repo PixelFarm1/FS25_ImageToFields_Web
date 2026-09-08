@@ -126,6 +126,20 @@ export const fixtures = {
   },
 
   /**
+   * A C — a ring with a gap cut through one side. Its centroid lands in the
+   * open middle, well outside the field, so it is the case that separates real
+   * label placement from "just use the centre". The gap matters: without it the
+   * middle would be an island rather than exterior.
+   */
+  'c-shape': () => {
+    const m = new Mask(400, 400)
+    m.circle(200, 200, 150)
+    m.circle(200, 200, 90, 0)
+    m.rect(200, 110, 200, 180, 0)
+    return m
+  },
+
+  /**
    * A dumbbell: two lobes joined by a thin neck. Enough clearance pinches the
    * neck and the field has to split into two polygons.
    */

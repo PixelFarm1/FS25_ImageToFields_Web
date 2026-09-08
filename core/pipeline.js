@@ -13,6 +13,7 @@ import { bridgeFields } from './bridge.js'
 import { validateFields } from './validate.js'
 import { finalFieldsToXML, ringFieldsToXML } from './xml.js'
 import { area } from './geom.js'
+import { poleOfInaccessibility } from './labelPoint.js'
 
 export const DEFAULT_OPTIONS = {
   demSize: 2048,
@@ -56,18 +57,27 @@ export function runPipeline(image, options = {}, log = () => {}) {
   const areaScale = (opt.unitsPerPixel * ratio) ** 2
 
   const fields = bridged.fields.map(f => {
-    const outerArea = area(f.rings?.[0] ?? f.outer)
-    const islandArea = (f.rings?.slice(1) ?? f.islands).reduce((s, r) => s + area(r), 0)
+    const rings = f.rings ?? [f.outer, ...(f.islands ?? [])]
+    const outerArea = area(rings[0])
+    const islandArea = rings.slice(1).reduce((s, r) => s + area(r), 0)
+
+    // Where a label belongs — see labelPoint.js. Field-local, like the
+    // coordinates, so it moves with the field's centre.
+    const label = poleOfInaccessibility(rings)
+
     return {
       id: f.id,
       sourceId: f.sourceId,
       part: f.part,
       centerX: f.centerX,
       centerY: f.centerY,
+      labelX: Math.round(label.x * 100) / 100,
+      labelY: Math.round(label.y * 100) / 100,
+      labelClearance: Math.round(label.distance * 100) / 100,
       coordinates: f.coordinates,
       bridges: f.bridges,
-      rings: f.rings,
-      islandCount: (f.rings?.length ?? 1) - 1,
+      rings,
+      islandCount: rings.length - 1,
       areaM2: Math.max(0, outerArea - islandArea) * areaScale,
     }
   })

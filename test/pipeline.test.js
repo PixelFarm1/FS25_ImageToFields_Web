@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { fixtures } from '../fixtures/masks.js'
 import { runPipeline } from '../core/pipeline.js'
 import { area, signedArea2, properIntersect, pointInRing } from '../core/geom.js'
+import { signedDistance } from '../core/labelPoint.js'
 import { decomposeField } from '../audit.js'
 
 const NAMES = Object.keys(fixtures)
@@ -191,6 +192,39 @@ test('island-near-edge: clearance grows islands as well as pulling the boundary 
     'islands must expand under clearance, not stay flush against the machinery')
   assert.ok(area(after.rings[0]) < area(before.rings[0]),
     'the boundary must pull inward')
+})
+
+test('every label point sits inside its field', () => {
+  for (const name of NAMES) {
+    for (const f of run(name).fields) {
+      const p = { x: f.labelX, y: f.labelY }
+      assert.ok(pointInRing(p, f.rings[0]),
+        `${name} field ${f.id}: label is outside the field boundary`)
+      f.rings.slice(1).forEach((r, i) => {
+        assert.ok(!pointInRing(p, r),
+          `${name} field ${f.id}: label sits inside island ${i}`)
+      })
+      assert.ok(f.labelClearance > 0,
+        `${name} field ${f.id}: label has no clearance from the edges`)
+    }
+  }
+})
+
+test('c-shape: the label avoids the gap the centroid falls into', () => {
+  // The whole point of the pole of inaccessibility rather than the centre: on
+  // this shape the centroid is not in the field at all.
+  const f = run('c-shape').fields[0]
+
+  // Coordinates are relative to the field's centroid, so the origin is it.
+  const centroidClearance = signedDistance(0, 0, f.rings)
+  assert.ok(centroidClearance < 0,
+    `fixture proves nothing — its centroid is already ${centroidClearance} inside`)
+
+  assert.ok(signedDistance(f.labelX, f.labelY, f.rings) > 0,
+    'label should be inside the field')
+  // Roomy, not merely inside: the arm of the C is ~60 units thick.
+  assert.ok(f.labelClearance > 20,
+    `expected a roomy label spot, got clearance ${f.labelClearance}`)
 })
 
 test('audit round-trips the emitted format', () => {
