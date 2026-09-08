@@ -1,0 +1,14 @@
+{
+  "name": "fs25-image-to-fields-rebuild",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "cli": "node cli.js"
+  },
+  "dependencies": {
+    "clipper-lib": "^6.4.2",
+    "pngjs": "^7.0.0"
+  }
+}
