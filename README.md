@@ -109,69 +109,6 @@ Choosing *where* those bridges go is the hard part. Bridges are picked in three 
 Every result is then validated — bridges that cross geometry, unclosed rings, inconsistent
 winding, area mismatches — and anything found is reported per field in the app.
 
-## Command line
-
-The same pipeline runs headlessly, which is useful for batching or for checking a mask
-without opening the editor.
-
-```bash
-npm install
-node cli.js mask.png --dem 4096 --out out/
-```
-
-| Option | Meaning | Default |
-| --- | --- | --- |
-| `--dem <n>` | DEM size (1024 / 2048 / 4096 / 8192) | 2048 |
-| `--simplify <f>` | Simplification tolerance | 0.7 |
-| `--clearance <f>` | Border reduction and island clearance, world units | 0 |
-| `--upp <n>` | World units per source pixel, for area reporting | 1 |
-| `--numbering <o>` | Field ID order: `radial` / `rows` / `columns` / `area` / `source` | `radial` |
-| `--corner <c>` | Corner for `--numbering radial`: `nw` / `ne` / `sw` / `se` | `nw` |
-| `--rings <n>` | Rings for `--numbering radial` (2–40) | 20 |
-| `--out <dir>` | Output directory | `./out` |
-| `--no-svg` | Skip the debug SVG | |
-
-Outputs `final_field_coordinates.xml` (the one to import), `field_rings.xml`, a `debug.svg`
-showing boundaries, islands and bridges in distinct colours, and a `report.json`.
-
-To re-check an XML produced by any version of this tool for bridges running over non-field
-area:
-
-```bash
-node cli.js --audit path/to/final_field_coordinates.xml
-```
-
-## Development
-
-```bash
-npm install          # pipeline + CLI
-npm test             # geometry tests
-
-cd web
-npm install
-npm run dev          # http://localhost:5180
-```
-
-`web/` is a Vite + React app that imports `core/` directly, so the browser and the CLI run
-identical code with no branch between them. `core/` is free of DOM and Node specifics: it
-takes `{ width, height, rgba }` and returns plain objects, filled from `OffscreenCanvas` in
-the browser and from `pngjs` on the command line.
-
-```
-core/        pipeline — raster, contours, offset, simplify, bridge, validate, xml
-cli.js       headless runner
-audit.js     crossing checker for a produced XML
-fixtures/    synthetic masks used by the tests
-test/        geometry tests
-web/         browser app
-```
-
-The tests assert invariants rather than compare against golden files, so a change that
-shifts coordinates but keeps the geometry sound passes, while one that opens a sliver or
-routes a bridge over an island fails: the ring closes, emitted area equals boundary minus
-islands exactly, winding is normalised, no bridge crosses any ring or leaves the field,
-both ends of every bridge are visited twice, and every island is reachable.
-
 ## Privacy
 
 Everything runs in your browser — masks and generated XML are never uploaded, and there is
