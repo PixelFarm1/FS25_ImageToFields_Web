@@ -5,6 +5,60 @@ import { pointInRing } from '../../core/geom.js'
 const DRAG_SLOP = 5
 
 /**
+ * Smooth zoom-and-pan interpolation (Van Wijk & Nuij 2003) — the path
+ * d3.interpolateZoom uses.
+ *
+ * Interpolating centre and zoom separately does not work: zoom is
+ * multiplicative and translation is additive, so whichever you ease, the other
+ * misbehaves. Easing the pair with an ordinary ease-out is worse still — it is
+ * roughly half finished in the first fifth of its time, which is why it reads
+ * as a snap followed by a crawl rather than a glide.
+ *
+ * This treats the two as one path through (x, y, viewportWidth) space and
+ * traverses it at constant *perceived* velocity: while zoomed out the camera
+ * covers ground quickly, while zoomed in it slows, exactly as it looks like it
+ * should. It also arcs outward on long moves — zooming out to cross, then back
+ * in — instead of grinding across at full magnification.
+ *
+ * Each point is [centreX, centreY, viewport width in world units]. `S` is the
+ * path length in the transformed space, which is the natural basis for how long
+ * the move should take.
+ */
+export function smoothZoomPath(p0, p1) {
+  const rho = Math.SQRT2, rho2 = 2, rho4 = 4
+  const [ux0, uy0, w0] = p0
+  const [ux1, uy1, w1] = p1
+  const dx = ux1 - ux0, dy = uy1 - uy0
+  const d2 = dx * dx + dy * dy
+
+  // Same centre: a pure zoom, where the general solution degenerates.
+  if (d2 < 1e-12) {
+    const S = Math.abs(Math.log(w1 / w0)) / rho
+    return {
+      S,
+      at: t => [ux0 + t * dx, uy0 + t * dy, w0 * Math.exp(rho * t * S * Math.sign(Math.log(w1 / w0) || 1))],
+    }
+  }
+
+  const d1 = Math.sqrt(d2)
+  const b0 = (w1 * w1 - w0 * w0 + rho4 * d2) / (2 * w0 * rho2 * d1)
+  const b1 = (w1 * w1 - w0 * w0 - rho4 * d2) / (2 * w1 * rho2 * d1)
+  const r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0)
+  const r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1)
+  const S = (r1 - r0) / rho
+  const coshr0 = Math.cosh(r0)
+
+  return {
+    S: Math.abs(S),
+    at: t => {
+      const s = t * S
+      const u = (w0 / (rho2 * d1)) * (coshr0 * Math.tanh(rho * s + r0) - Math.sinh(r0))
+      return [ux0 + u * dx, uy0 + u * dy, (w0 * coshr0) / Math.cosh(rho * s + r0)]
+    },
+  }
+}
+
+/**
  * World-space footprint of the reference mask, centred on the origin.
  *
  * toWorld divides both axes by the same ratio = imageWidth / demSize, so the
@@ -202,7 +256,7 @@ export default function FieldCanvas({
    * at the far end and reads as a lurch. Easing the exponent instead keeps the
    * apparent rate of magnification steady.
    */
-  const animateTo = useCallback((scale, cx, cy, duration = 420) => {
+  const animateTo = useCallback((scale, cx, cy) => {
     const canvas = ref.current
     if (!canvas) return
     stopAnimation()
@@ -212,25 +266,29 @@ export default function FieldCanvas({
     const fromCx = (canvas.width / 2 - v.tx) / v.scale
     const fromCy = (canvas.height / 2 - v.ty) / v.scale
 
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const negligible =
-      Math.abs(Math.log(scale / fromScale)) < 0.01 &&
-      Math.hypot(cx - fromCx, cy - fromCy) * scale < 1
+    const path = smoothZoomPath(
+      [fromCx, fromCy, canvas.width / fromScale],
+      [cx, cy, canvas.width / scale])
 
-    if (reduceMotion || duration <= 0 || negligible) {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion || path.S < 1e-3) {
       applyCamera(scale, cx, cy)
       drawRef.current()
       return
     }
 
+    // Duration grows with the path length, so a nudge stays brisk and a jump
+    // across the map takes its time, both at the same apparent speed. On a
+    // 4096 DEM this puts a typical whole-map-to-field move around 1.4 s.
+    const duration = Math.min(2200, Math.max(700, path.S * 750))
+
     const start = performance.now()
     const tick = now => {
       const t = Math.min(1, (now - start) / duration)
-      const e = 1 - (1 - t) ** 3 // ease-out cubic
-      applyCamera(
-        fromScale * (scale / fromScale) ** e,
-        fromCx + (cx - fromCx) * e,
-        fromCy + (cy - fromCy) * e)
+      // The path is already constant-velocity, so this only softens the two
+      // ends — enough to stop the start and stop reading as abrupt.
+      const [ux, uy, w] = path.at(t * t * (3 - 2 * t))
+      applyCamera(canvas.width / w, ux, uy)
       drawRef.current()
       animRef.current = t < 1 ? requestAnimationFrame(tick) : 0
     }
@@ -289,9 +347,18 @@ export default function FieldCanvas({
   }, [draw, fit, hasContent])
 
   // A fresh result should re-fit rather than keep the previous viewport.
+  //
+  // Keyed on the identity of `fields`, not on the effect's dependencies: `draw`
+  // is rebuilt whenever `selected` changes, which rebuilds `fit` with it, so
+  // depending on those alone re-ran this on every selection and yanked the
+  // camera back to the whole-map extent an instant before the tween started —
+  // which is what made selecting a field look like a snap.
+  const fittedFor = useRef(null)
   useEffect(() => {
-    view.current.fitted = false
-    if (fields?.length) { view.current.fitted = true; fit() }
+    if (fields === fittedFor.current) { draw(); return }
+    fittedFor.current = fields
+    view.current.fitted = !!fields?.length
+    if (fields?.length) fit()
     else draw()
   }, [fields, fit, draw])
 
