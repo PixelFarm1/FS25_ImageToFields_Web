@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Image to Fields">
+  <rect width="32" height="32" rx="7" fill="#1B4332"/>
+  <path d="M5.5 11.5 L26 8 L27 21 L8.5 25 Z"
+        fill="none" stroke="#E63946" stroke-width="2.8" stroke-linejoin="round"/>
+  <circle cx="17" cy="16" r="2.6" fill="none" stroke="#E63946" stroke-width="2"/>
+</svg>
