@@ -144,6 +144,12 @@ h2.tip { text-decoration-color: hsl(var(--muted-foreground) / 0.45); }
   outline: none; border-color: hsl(var(--ring));
   box-shadow: 0 0 0 1px hsl(var(--ring));
 }
+/* A row whose control needs the full width — the numbering options are phrases,
+   not numbers, and do not fit the narrow control column. */
+.field.stack { flex-direction: column; align-items: stretch; gap: 5px; }
+.field.stack label { flex: none; }
+.field.stack select { width: 100%; text-align: left; }
+
 .field .val {
   flex: 0 0 auto; width: 44px;
   text-align: right; font-variant-numeric: tabular-nums;

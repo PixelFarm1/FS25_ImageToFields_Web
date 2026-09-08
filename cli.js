@@ -19,7 +19,8 @@ import { auditXML } from './audit.js'
 function parseArgs(argv) {
   const opt = {
     input: null, out: 'out', demSize: 2048, simplification: 0.7,
-    clearance: 0, unitsPerPixel: 1, svg: true, quiet: false, audit: null,
+    clearance: 0, unitsPerPixel: 1, numbering: 'rows',
+    svg: true, quiet: false, audit: null,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -29,6 +30,7 @@ function parseArgs(argv) {
     else if (a === '--clearance') opt.clearance = parseFloat(next())
     // --mpp stays accepted as the old spelling of the same option.
     else if (a === '--upp' || a === '--mpp') opt.unitsPerPixel = parseInt(next(), 10)
+    else if (a === '--numbering') opt.numbering = next()
     else if (a === '--out') opt.out = next()
     else if (a === '--audit') opt.audit = next()
     else if (a === '--no-svg') opt.svg = false
@@ -50,6 +52,7 @@ Options
   --simplify <f>     RDP tolerance                    default 0.7
   --clearance <f>    border reduction / island clearance, world units   default 0
   --upp <n>          world units per source pixel, for area reporting   default 1
+  --numbering <o>    field id order: rows|columns|area|source   default rows
   --out <dir>        output directory                 default ./out
   --no-svg           skip the debug SVG
   -q, --quiet        only print the summary
@@ -105,6 +108,7 @@ async function main() {
     options: {
       demSize: opt.demSize, simplification: opt.simplification,
       clearance: opt.clearance, unitsPerPixel: opt.unitsPerPixel,
+      numbering: opt.numbering,
     },
     stats: result.stats,
     warnings: result.warnings,

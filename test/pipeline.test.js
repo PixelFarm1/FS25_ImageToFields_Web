@@ -227,6 +227,41 @@ test('c-shape: the label avoids the gap the centroid falls into', () => {
     `expected a roomy label spot, got clearance ${f.labelClearance}`)
 })
 
+test('grid: numbering orders read the way they say they do', () => {
+  // Positions on the 3x3 grid, read left-to-right then top-to-bottom.
+  const cells = order => {
+    const fs = run('grid', { numbering: order }).fields
+      .map(f => ({ id: f.id, x: f.centerX, y: f.centerY }))
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+    return [fs.slice(0, 3), fs.slice(3, 6), fs.slice(6, 9)]
+      .flatMap(row => row.sort((a, b) => a.x - b.x).map(f => f.id))
+  }
+
+  assert.deepEqual(cells('rows'), [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    'rows should number left to right, top to bottom')
+  assert.deepEqual(cells('columns'), [1, 4, 7, 2, 5, 8, 3, 6, 9],
+    'columns should number top to bottom, left to right')
+
+  // Detection order is what looks scrambled — the fixture is only meaningful
+  // if it actually differs from a clean reading order.
+  assert.notDeepEqual(cells('source'), [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    'fixture proves nothing: detection order already reads cleanly')
+
+  // Largest first: the deliberately tall field takes id 1.
+  const byArea = run('grid', { numbering: 'area' }).fields
+  const areas = byArea.map(f => f.areaM2)
+  for (let i = 1; i < areas.length; i++) {
+    assert.ok(areas[i] <= areas[i - 1] + 1e-6, 'area order should be descending')
+  }
+})
+
+test('every numbering order produces ids 1..n exactly once', () => {
+  for (const order of ['rows', 'columns', 'area', 'source']) {
+    const ids = run('grid', { numbering: order }).fields.map(f => f.id).sort((a, b) => a - b)
+    assert.deepEqual(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9], `${order} produced ${ids}`)
+  }
+})
+
 test('the exported XML declares an origin inside its own field', () => {
   // The importer hangs nameIndicator and teleportIndicator off the field's
   // origin, so an origin outside the polygon puts the field's name marker and

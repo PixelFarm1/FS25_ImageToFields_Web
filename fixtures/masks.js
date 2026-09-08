@@ -126,6 +126,28 @@ export const fixtures = {
   },
 
   /**
+   * A 3x3 grid of fields, staggered vertically so no two share a top edge, and
+   * with a tall field whose top pokes above its neighbours' — which is exactly
+   * what makes detection order look scrambled, since that order is decided by a
+   * field's single topmost pixel.
+   */
+  grid: () => {
+    const m = new Mask(400, 400)
+    const stagger = [0, 14, 7, 10, 0, 18, 5, 12, 0]
+    let i = 0
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const x = 30 + col * 125
+        const y = 30 + row * 125 + stagger[i++]
+        // The middle-right field is tall, so its top outranks the row above it.
+        const tall = row === 1 && col === 2
+        m.rect(x, tall ? y - 40 : y, 90, tall ? 130 : 90)
+      }
+    }
+    return m
+  },
+
+  /**
    * A C — a ring with a gap cut through one side. Its centroid lands in the
    * open middle, well outside the field, so it is the case that separates real
    * label placement from "just use the centre". The gap matters: without it the

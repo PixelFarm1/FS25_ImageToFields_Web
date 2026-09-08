@@ -3,6 +3,7 @@ import { zipSync, strToU8 } from 'fflate'
 import FieldCanvas from './FieldCanvas.jsx'
 import PrivacyNotice from './PrivacyNotice.jsx'
 import { trackEvent } from './analytics.js'
+import { NUMBERING_ORDERS, NUMBERING_LABELS } from '../../core/numbering.js'
 // The importer script ships with the coordinates: the XML is useless in the
 // Giants Editor without it, and telling people to go and find it in the
 // repository is a step that gets missed.
@@ -24,6 +25,9 @@ const TIP = {
   clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
              'leaving machinery the same clearance around a tree island as at the field edge. ' +
              '0 traces the mask exactly.',
+  numbering: 'What order the field IDs run in. Detection order numbers each field by its ' +
+             'single topmost pixel, which is why it can look arbitrary; the reading orders ' +
+             'group fields into rows or columns first so neighbours get neighbouring numbers.',
   upp: 'How many world units one pixel of your mask covers. One Giants unit is one metre, so ' +
        'this is what turns the traced geometry into the hectare figures. Whole numbers only, ' +
        'and it never changes the geometry — only the reported areas.',
@@ -72,6 +76,7 @@ export default function App() {
   const [simplification, setSimplification] = useState(0.7)
   const [clearance, setClearance] = useState(0)
   const [unitsPerPixel, setUnitsPerPixel] = useState(1)
+  const [numbering, setNumbering] = useState('rows')
 
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
@@ -151,12 +156,13 @@ export default function App() {
     if (!file || running) return
     setRunning(true); setResult(null); setSelected(null); setLogs([])
     setRanDemSize(demSize)
-    trackEvent('pipeline_started', { demSize, simplification, clearance })
+    trackEvent('pipeline_started', { demSize, simplification, clearance, numbering })
     const buffer = await file.arrayBuffer()
     worker.current.postMessage(
-      { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, unitsPerPixel } },
+      { type: 'RUN', imageBuffer: buffer,
+        options: { demSize, simplification, clearance, unitsPerPixel, numbering } },
       [buffer])
-  }, [file, running, demSize, simplification, clearance, unitsPerPixel])
+  }, [file, running, demSize, simplification, clearance, unitsPerPixel, numbering])
 
   function pick(f) {
     if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
@@ -231,6 +237,15 @@ export default function App() {
                        const v = parseInt(e.target.value, 10)
                        if (Number.isFinite(v) && v >= 1) setUnitsPerPixel(v)
                      }} />
+            </div>
+
+            <div className="field stack">
+              <label className="tip" htmlFor="num" title={TIP.numbering}>Numbering</label>
+              <select id="num" value={numbering} onChange={e => setNumbering(e.target.value)}>
+                {NUMBERING_ORDERS.map(o => (
+                  <option key={o} value={o}>{NUMBERING_LABELS[o]}</option>
+                ))}
+              </select>
             </div>
           </div>
 

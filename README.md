@@ -42,6 +42,7 @@ Hover any setting or result figure in the app for an explanation.
 | **DEM size** | Your DEM resolution minus 1. Sets the world scale, so a 1024 px and an 8192 px mask give the same coordinates. |
 | **Simplification** | How aggressively boundary points are removed. Capped per ring at 2% of that ring's own size, so small islands keep their shape at settings that thin a large boundary. |
 | **Clearance** | Pulls field boundaries inward *and* grows islands outward by the same amount, so machinery gets the same clearance around a tree island as at the field edge. |
+| **Numbering** | What order field IDs run in — top-left to bottom-right, down each column, largest first, or raw detection order. Detection order numbers a field by its single topmost pixel, which is why it looks arbitrary. |
 | **Units per pixel** | How many world units one mask pixel covers. Affects the reported areas only, never the geometry. |
 | **Reference image** | Draws your mask underneath the traced outlines so you can see exactly what simplification changed. |
 
@@ -125,6 +126,7 @@ node cli.js mask.png --dem 4096 --out out/
 | `--simplify <f>` | Simplification tolerance | 0.7 |
 | `--clearance <f>` | Border reduction and island clearance, world units | 0 |
 | `--upp <n>` | World units per source pixel, for area reporting | 1 |
+| `--numbering <o>` | Field ID order: `rows` / `columns` / `area` / `source` | `rows` |
 | `--out <dir>` | Output directory | `./out` |
 | `--no-svg` | Skip the debug SVG | |
 

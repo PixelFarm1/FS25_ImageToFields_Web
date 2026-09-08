@@ -14,6 +14,7 @@ import { validateFields } from './validate.js'
 import { finalFieldsToXML, ringFieldsToXML } from './xml.js'
 import { area } from './geom.js'
 import { poleOfInaccessibility } from './labelPoint.js'
+import { renumberFields } from './numbering.js'
 
 export const DEFAULT_OPTIONS = {
   demSize: 2048,
@@ -23,6 +24,8 @@ export const DEFAULT_OPTIONS = {
   clearance: 0,
   /** World units one source pixel covers. Affects reported areas only. */
   unitsPerPixel: 1,
+  /** Field id order: 'rows' | 'columns' | 'area' | 'source'. */
+  numbering: 'rows',
 }
 
 /**
@@ -45,7 +48,10 @@ export function runPipeline(image, options = {}, log = () => {}) {
   const world = toWorld(contours, width, height, opt.demSize)
 
   const offset = offsetFields(world, opt.clearance, log)
-  const simplified = simplifyFields(offset.fields, opt.simplification, {}, log)
+  // Before the later stages, so the ids in the log, the field list and the XML
+  // are all the same numbers.
+  const numbered = renumberFields(offset.fields, opt.numbering, log)
+  const simplified = simplifyFields(numbered, opt.simplification, {}, log)
   const bridged = bridgeFields(simplified, log)
   const validation = validateFields(bridged.fields, log)
 
