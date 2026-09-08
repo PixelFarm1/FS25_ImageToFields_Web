@@ -11,9 +11,9 @@ Farming Simulator 25. No installation, no upload — everything runs in your bro
 
 Drop in a white-on-black field mask and the tool traces every field boundary, works out
 which non-field areas are islands inside them, connects those islands into a single
-importable polygon, and writes a ready-to-use XML. The download also includes
-`coordinatesToFields.lua`, a Giants Editor script that reads the XML and places the field
-polygons into your map, aligned to the terrain.
+importable polygon, and writes a ready-to-use XML. `coordinatesToFields.lua` in this
+repository is a Giants Editor script that reads that XML and places the field polygons into
+your map.
 
 ## What a correct field mask looks like
 
@@ -26,18 +26,16 @@ White areas are fields. Black is everything else.
   and are cut out of the field automatically
 - A white area inside an island is not a field and is discarded, with a warning
 
-## How to use it
+---
+
+## 1 — Run the tool
 
 1. Open the [web app](https://pixelfarm1.github.io/FS25_ImageToFields_Web/)
 2. Drop your field mask PNG onto the drop zone
 3. Set **DEM size** to your map's `DEM.png` resolution minus 1 — a 4097×4097 DEM means 4096
-4. Adjust **Simplification** and **Clearance** if you want (see below)
-5. Press **Run**, then **Download XML**
-6. In the Giants Editor, run `coordinatesToFields.lua` and pick the XML
+4. Adjust the settings below if you want, then press **Run** and watch the log panel
 
 Hover any setting or result figure in the app for an explanation.
-
-### Settings
 
 | Setting | What it does |
 | --- | --- |
@@ -46,6 +44,49 @@ Hover any setting or result figure in the app for an explanation.
 | **Clearance** | Pulls field boundaries inward *and* grows islands outward by the same amount, so machinery gets the same clearance around a tree island as at the field edge. |
 | **Units per pixel** | How many world units one mask pixel covers. Affects the reported areas only, never the geometry. |
 | **Reference image** | Draws your mask underneath the traced outlines so you can see exactly what simplification changed. |
+
+## 2 — Inspect the result
+
+The canvas shows every detected field with its ID, and the field list gives node counts and
+areas. Pan with click-drag, zoom with the scroll wheel, and click a field — on the canvas or
+in the list — to zoom to it. Islands and the bridges connecting them are drawn in their own
+colours, so anything wrong is visible before you import.
+
+Any geometry problem the validator finds is flagged on the field it belongs to.
+
+## 3 — Import into Giants Editor
+
+1. Press **Download XML**
+2. Open your map in Giants Editor
+3. Make sure you have a `Fields` transform group with the correct attributes, and remove any
+   existing children from it
+4. Drop `coordinatesToFields.lua` into your GE scripts folder (or load it as a script)
+5. Run the script — a file dialog opens, select your `final_field_coordinates.xml`
+6. The script creates all field polygons and repaints the cultivated ground
+7. Use the built in MapToolkit plugins to simplify field nodes if necessary
+
+---
+
+## Suggested workflow for FS22 map conversions
+
+*Prerequisites: a FS22 map where fields are painted with terrainDetail (the `densityMap_ground.gdm`)*
+
+1. Convert `densityMap_ground.gdm` using the converter at GDN
+2. Open the converted file in GIMP and add a new layer with white fill
+3. If the image turns all red instead of white: **Image → Mode → RGB**, then recreate the white layer
+4. Set the white layer blending mode to **Dodge** and merge the two layers
+5. Use **Select by Color** (Shift+O) and click one of the bright red field areas to see the selection
+6. Check carefully for stray pixels or gaps — they are easiest to spot in select mode
+7. When the mask looks clean, create a new layer with white fill
+8. Set the blending mode to **HSV Saturation** — field areas will turn white
+9. Merge the layers and repeat step 6 to do a final check
+10. Export the result with these settings:
+
+![Export settings](https://github.com/user-attachments/assets/b032a1dc-792b-4017-9600-4cf197ea9113)
+
+11. Run the web tool as described above
+
+---
 
 ## How islands are handled
 
@@ -134,6 +175,6 @@ no backend. Optional Google Analytics loads only if you accept the consent banne
 and no cookies are set at all. The Inter typeface is self-hosted, so no request reaches
 Google Fonts. See *Privacy* in the app header for the full notice.
 
-## Credits
+## License
 
-Created by **PixelFarm**. Licensed under the [MIT License](LICENSE).
+Created by **PixelFarm**. See [LICENSE](LICENSE).
