@@ -41,9 +41,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
-      - name: Install
+      # The app bundles core/, which lives at the repository root and declares
+      # its own dependencies there. Node resolution walks up from core/, past
+      # web/node_modules, so the root install is what satisfies those imports —
+      # installing only web/ builds fine locally on a dirty tree and fails here.
+      - name: Install pipeline dependencies
+        run: npm ci
+
+      - name: Install app dependencies
         run: npm ci
         working-directory: web
 
