@@ -1,11 +1,18 @@
-# Python desktop tool — not needed for GitHub Pages deployment
+# Dependencies and build output
+node_modules/
+dist/
+out/
+.vite/
+vite.config.js.timestamp-*.mjs
+
+# Legacy Python desktop tool — superseded by the browser app and CLI
 main.py
 scripts/
-
-# Development notes
 REBUILD.md
-
-# Python bytecode
 __pycache__/
 *.pyc
 *.pyo
+
+# OS noise
+.DS_Store
+Thumbs.db

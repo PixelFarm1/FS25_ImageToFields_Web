@@ -1,16 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
 
+// The pipeline lives in ../core and is shared verbatim with the CLI, so Vite
+// needs permission to serve files from outside this app directory.
 export default defineConfig({
-  base: process.env.VITE_BASE || '/',
   plugins: [react()],
-  worker: {
-    format: 'es',
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
+  base: './',
+  worker: { format: 'es' },
+  server: { fs: { allow: ['..', '../..'] } },
 })

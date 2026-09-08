@@ -17,7 +17,7 @@ import { area } from './geom.js'
 export const DEFAULT_OPTIONS = {
   demSize: 2048,
   /** RDP tolerance, capped per ring at a fraction of the ring's own size. */
-  simplification: 0.2,
+  simplification: 0.7,
   /** Border reduction / island clearance, in world units. */
   clearance: 0,
   /** World units one source pixel covers. Affects reported areas only. */

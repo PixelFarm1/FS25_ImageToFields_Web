@@ -1,66 +1,147 @@
-/* Self-hosted Inter (no request to Google's CDN, so visitor IPs are never
-   transmitted to a third party). Bundled by Vite from node_modules. */
+/* Self-hosted Inter, bundled by Vite from node_modules — no request to Google's
+   CDN, matching the main app's handling. */
 @import '@fontsource-variable/inter/opsz.css';
 @import '@fontsource-variable/inter/opsz-italic.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* ── Watermelon UI — CSS custom properties ───────────────────────────────── */
-/* Palette:                                                                    */
+/* ── Watermelon UI — same tokens as web/src/index.css ─────────────────────── */
 /*   Background  #FDF8F5  hsl(20 67% 98%)   warm cream                        */
 /*   Foreground  #1A120B  hsl(28 41%  7%)   dark seed                         */
-/*   Primary     #E63946  hsl(354 72% 56%)  watermelon flesh red               */
+/*   Primary     #E63946  hsl(354 72% 56%)  watermelon flesh red              */
 /*   Secondary   #1B4332  hsl(154 43% 18%)  rind dark green                   */
-/*   Accent      #FFE8EB  hsl(354 100% 95%) pale pink                          */
+/*   Accent      #FFE8EB  hsl(354 100% 95%) pale pink                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --background:          20 67% 98%;
-  --foreground:          28 41%  7%;
+  --background:            20 67% 98%;
+  --foreground:            28 41%  7%;
 
-  --card:                 0  0% 100%;
-  --card-foreground:     28 41%  7%;
+  --card:                   0  0% 100%;
+  --card-foreground:       28 41%  7%;
 
-  --popover:              0  0% 100%;
-  --popover-foreground:  28 41%  7%;
+  --primary:              354 72% 56%;
+  --primary-foreground:     0  0% 100%;
 
-  --primary:            354 72% 56%;    /* #E63946 flesh red  */
-  --primary-foreground:   0  0% 100%;
+  --secondary:            154 43% 18%;
+  --secondary-foreground:   0  0% 98%;
 
-  --secondary:          154 43% 18%;    /* #1B4332 rind green */
-  --secondary-foreground: 0  0% 98%;
+  --muted:                 20 30% 93%;
+  --muted-foreground:      25 20% 42%;
 
-  --muted:               20 30% 93%;
-  --muted-foreground:    25 20% 42%;
+  --accent:               354 100% 95%;
+  --accent-foreground:    354 60% 38%;
 
-  --accent:             354 100% 95%;   /* #FFE8EB pale pink  */
-  --accent-foreground:  354 60% 38%;
+  --destructive:            0 84% 60%;
+  --destructive-foreground: 0  0% 100%;
 
-  --destructive:          0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
+  --border:                14 30% 88%;
+  --input:                 14 30% 88%;
+  --ring:                 354 72% 56%;
 
-  --border:              14 30% 88%;
-  --input:               14 30% 88%;
-  --ring:               354 72% 56%;
+  --radius: 0.5rem;
 
-  --radius:              0.5rem;
+  /* Canvas overlay hues, shared with FieldCanvas.jsx and debugSvg.js */
+  --island: #1b4332;
+  --bridge: #1d4ed8;
+  --chain:  #7c3aed;
+
+  color-scheme: light;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body, #root {
-  height: 100%;
+body {
   margin: 0;
-  padding: 0;
   background: hsl(var(--background));
-  font-family: 'Inter Variable', 'Inter', sans-serif;
   color: hsl(var(--foreground));
+  font-family: 'Inter Variable', 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   overflow: hidden;
 }
 
-/* ── Range slider — watermelon red thumb, warm track ──────────────────────── */
-input[type='range'] {
+button { font: inherit; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Header — rind green bar, as in the main app ──────────────────────────── */
+header {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 9px 16px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.20);
+  flex: none;
+  z-index: 2;
+}
+header h1 { font-size: 14px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+header .tag {
+  font-size: 12px; padding: 1px 8px; border-radius: calc(var(--radius) - 4px);
+  border: 1px solid #3d8b67; color: #52b788; background: transparent;
+  letter-spacing: 0.04em;
+}
+header .spacer { margin-left: auto; }
+header .note { font-size: 12.5px; color: hsl(var(--secondary-foreground) / 0.72); }
+header .headerlink {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font-size: 12.5px; color: hsl(var(--secondary-foreground) / 0.85);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+header .headerlink:hover { color: hsl(var(--secondary-foreground)); }
+
+/* ── Hover explanations ───────────────────────────────────────────────────── */
+/* Native title text: it can never be clipped by the scrolling settings column,
+   which an absolutely positioned tooltip would be. */
+.tip { cursor: help; text-decoration: underline dotted hsl(var(--muted-foreground) / 0.6); text-underline-offset: 3px; }
+h2.tip { text-decoration-color: hsl(var(--muted-foreground) / 0.45); }
+
+.body { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; flex: 1; min-height: 0; }
+
+.col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+/* The settings column grows past the viewport on shorter screens, so it scrolls
+   rather than clipping the result panel off the bottom. */
+.col.left  { border-right: 1px solid hsl(var(--border)); overflow-y: auto; }
+.col.left > .section { flex: none; }
+.col.right { border-left: 1px solid hsl(var(--border)); }
+
+.section { padding: 12px 14px; border-bottom: 1px solid hsl(var(--border)); }
+.section h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em;
+  color: hsl(var(--muted-foreground)); margin: 0 0 10px; font-weight: 500;
+}
+
+/* ── Drop zone ────────────────────────────────────────────────────────────── */
+.drop {
+  display: block;
+  border: 1.5px dashed hsl(var(--border)); border-radius: var(--radius);
+  padding: 20px 12px; text-align: center; cursor: pointer;
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+  transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.over { border-color: hsl(var(--primary)); background: hsl(var(--accent)); }
+.drop strong { display: block; color: hsl(var(--foreground)); font-weight: 600; margin-bottom: 3px; }
+.drop small { color: hsl(var(--muted-foreground)); }
+
+/* ── Form rows ────────────────────────────────────────────────────────────── */
+.field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.field label { flex: 1; color: hsl(var(--foreground)); font-size: 14px; }
+.field input[type="number"], .field select {
+  width: 88px; background: hsl(var(--background)); color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--input)); border-radius: calc(var(--radius) - 2px);
+  padding: 3px 8px; font: inherit; font-size: 14px; text-align: right;
+}
+.field select { text-align: left; }
+.field input[type="number"]:focus, .field select:focus {
+  outline: none; border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+.field .val {
+  width: 42px; text-align: right; font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground)); font-size: 14px;
+}
+
+/* Range slider — watermelon red thumb on a warm track, copied from the main app */
+.field input[type='range'] {
+  flex: 1.4;
   -webkit-appearance: none;
   appearance: none;
   height: 3px;
@@ -69,36 +150,210 @@ input[type='range'] {
   outline: none;
   cursor: pointer;
 }
-input[type='range']::-webkit-slider-thumb {
+.field input[type='range']::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 99px; background: hsl(var(--border));
+}
+.field input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
+  width: 15px; height: 15px; border-radius: 50%;
   background: hsl(var(--primary));
   cursor: pointer;
   border: 2.5px solid hsl(var(--card));
   box-shadow: 0 1px 5px hsl(var(--primary) / 0.35);
   margin-top: -6px;
 }
-input[type='range']::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
+.field input[type='range']::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
   background: hsl(var(--primary));
   cursor: pointer;
   border: 2.5px solid hsl(var(--card));
   box-shadow: 0 1px 5px hsl(var(--primary) / 0.35);
 }
-input[type='range']::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 99px;
-  background: hsl(var(--border));
+.field input[type='range']:hover::-webkit-slider-thumb { background: hsl(354 72% 46%); }
+
+/* ── Checkbox row ─────────────────────────────────────────────────────────── */
+.check {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px; cursor: pointer; user-select: none;
 }
-input[type='range']:hover::-webkit-slider-thumb {
-  background: hsl(354 72% 46%);
+.check input[type="checkbox"] {
+  width: 14px; height: 14px; margin: 0;
+  accent-color: hsl(var(--primary)); cursor: pointer;
+}
+.check span { font-size: 14px; color: hsl(var(--foreground)); }
+.check.disabled { opacity: .5; cursor: default; }
+.check.disabled span { color: hsl(var(--muted-foreground)); }
+
+.hint {
+  margin: 2px 0 0; font-size: 12px;
+  color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+/* A disabled range still needs to read as inert. */
+.field input[type='range']:disabled { opacity: .45; cursor: default; }
+.field input[type='range']:disabled::-webkit-slider-thumb { background: hsl(var(--muted-foreground)); }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn {
+  width: 100%; padding: 7px 14px;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer; font-size: 14px; font-weight: 500;
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.btn:hover:not(:disabled) {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+.btn:disabled { opacity: .5; cursor: default; pointer-events: none; }
+.btn:focus-visible {
+  outline: none; box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+}
+.btn.primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.9);
+  color: hsl(var(--primary-foreground));
+}
+.btn + .btn { margin-top: 6px; }
+
+/* ── Stats ────────────────────────────────────────────────────────────────── */
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 14px; }
+.stats dt { color: hsl(var(--muted-foreground)); }
+.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.stats dd.good { color: hsl(var(--secondary)); font-weight: 600; }
+.stats dd.bad  { color: hsl(var(--destructive)); font-weight: 600; }
+
+/* ── Log ──────────────────────────────────────────────────────────────────── */
+.log {
+  flex: 0 0 34%; overflow-y: auto; padding: 8px 14px 10px; margin: 0;
+  font-family: 'Inter Variable', ui-monospace, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px; line-height: 1.75;
+  color: hsl(var(--foreground) / 0.8);
+  white-space: pre-wrap; word-break: break-word;
+}
+.log .w { color: hsl(var(--accent-foreground)); }
+.log .e { color: hsl(var(--destructive)); }
+
+/* ── Canvas ───────────────────────────────────────────────────────────────── */
+.canvas-wrap { flex: 1; position: relative; min-height: 0; background: hsl(var(--background)); }
+canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+canvas.dragging { cursor: grabbing; }
+
+.legend {
+  position: absolute; left: 12px; bottom: 12px;
+  display: flex; gap: 14px; flex-wrap: wrap;
+  background: hsl(var(--card) / 0.9);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 7px 11px; font-size: 12.5px;
+  color: hsl(var(--muted-foreground));
+  backdrop-filter: blur(3px);
+}
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 2.5px; border-radius: 2px; display: block; }
+
+.empty {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: hsl(var(--muted-foreground)); font-size: 14px;
+  pointer-events: none; text-align: center; line-height: 1.7;
+}
+
+/* ── Right column panels ──────────────────────────────────────────────────── */
+.panel-head {
+  flex: none; padding: 12px 14px 10px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+/* The Log head also separates the two stacked panels, so it carries a heavier
+   rule above it than the ordinary section borders. */
+.panel-head.divider {
+  border-top: 2px solid hsl(var(--border));
+  box-shadow: 0 -4px 10px -6px rgb(0 0 0 / 0.18);
+}
+.panel-head h2 {
+  display: flex; align-items: baseline; gap: 8px; margin: 0;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em;
+  color: hsl(var(--muted-foreground)); font-weight: 500;
+}
+.panel-head h2 .sub {
+  margin-left: auto; letter-spacing: 0;
+  font-variant-numeric: tabular-nums; color: hsl(var(--foreground) / 0.75);
+}
+
+/* ── Field list ───────────────────────────────────────────────────────────── */
+.list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+.row {
+  display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: baseline;
+  padding: 7px 14px; border-bottom: 1px solid hsl(var(--border));
+  cursor: pointer; font-size: 13px;
+}
+.row:hover { background: hsl(var(--muted)); }
+.row.sel { background: hsl(var(--accent)); box-shadow: inset 2px 0 0 hsl(var(--primary)); }
+.row .id { color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.row .meta { color: hsl(var(--foreground) / 0.85); }
+.row .area { color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.row.err .id { color: hsl(var(--destructive)); font-weight: 600; }
+
+.pill {
+  display: inline-block; padding: 1px 6px;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 11.5px; margin-left: 6px;
+}
+.pill.chain { background: hsl(var(--muted)); color: var(--chain); }
+.pill.err   { background: hsl(var(--accent)); color: hsl(var(--destructive)); }
+
+/* ── Consent banner & privacy dialog ──────────────────────────────────────── */
+.consent {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 12px 18px;
+  background: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border));
+  box-shadow: 0 -2px 12px rgb(0 0 0 / 0.15);
+}
+.consent p { flex: 1; min-width: 280px; margin: 0; font-size: 13px; line-height: 1.5; }
+.consent-actions { display: flex; gap: 8px; flex: none; }
+.consent-actions .btn { width: auto; padding: 6px 14px; }
+
+.linkbtn {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 2px;
+}
+.linkbtn:hover { color: hsl(354 72% 46%); }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 16px;
+  background: rgb(0 0 0 / 0.5);
+}
+.modal {
+  width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto;
+  background: hsl(var(--card)); color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border)); border-radius: var(--radius);
+  padding: 20px; box-shadow: 0 12px 40px rgb(0 0 0 / 0.28);
+}
+.modal h2 { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+.modal p { margin: 0 0 10px; font-size: 13px; line-height: 1.6; }
+.modal-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid hsl(var(--border));
+}
+.modal-foot p { flex: 1; min-width: 200px; margin: 0; color: hsl(var(--muted-foreground)); }
+.modal-foot strong { color: hsl(var(--foreground)); }
+.modal-actions { display: flex; gap: 8px; flex: none; }
+.modal-actions .btn { width: auto; padding: 6px 14px; }
+
+/* ── Scrollbar — same treatment as the main app ───────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }

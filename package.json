@@ -1,0 +1,20 @@
+{
+  "name": "fs25-image-to-fields",
+  "version": "0.3.0",
+  "description": "Field-mask to Giants Editor XML pipeline, plus a headless CLI.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PixelFarm1/FS25_ImageToFields_Web.git"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "cli": "node cli.js"
+  },
+  "dependencies": {
+    "clipper-lib": "^6.4.2",
+    "pngjs": "^7.0.0"
+  }
+}

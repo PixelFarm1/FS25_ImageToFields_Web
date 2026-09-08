@@ -1,158 +1,351 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import LogPanel from './components/LogPanel.jsx'
-import ControlsPanel from './components/ControlsPanel.jsx'
-import FieldCanvas from './components/FieldCanvas.jsx'
-import { Badge } from './components/ui/badge.jsx'
-import PrivacyNotice from './components/PrivacyNotice.jsx'
-import { translations } from './i18n.js'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import FieldCanvas from './FieldCanvas.jsx'
+import PrivacyNotice from './PrivacyNotice.jsx'
 import { trackEvent } from './analytics.js'
 
+const DEM_SIZES = [1024, 2048, 4096, 8192]
+
+const VERSION = '0.3.0'
+
+/** Explanations shown on hover. "wu" in particular is not self-evident. */
+const TIP = {
+  mask: 'The black-and-white image to trace. White pixels are field, black is everything else.',
+  dem: 'Resolution of your map\'s DEM.png minus 1 — a 4097x4097 DEM means 4096. This sets the ' +
+       'world scale: the mask is stretched across a DEM-sized square, so a 1024px and an 8192px ' +
+       'mask produce the same coordinates at the same setting.',
+  simplify: 'How aggressively boundary points are removed (Ramer-Douglas-Peucker tolerance, in ' +
+            'world units). Capped per ring at 2% of that ring\'s own size, so small islands keep ' +
+            'their shape at settings that noticeably thin a large boundary. 0 disables it.',
+  clearance: 'Pulls field boundaries inward and grows islands outward by this many world units, ' +
+             'leaving machinery the same clearance around a tree island as at the field edge. ' +
+             '0 traces the mask exactly.',
+  upp: 'How many world units one pixel of your mask covers. One Giants unit is one metre, so ' +
+       'this is what turns the traced geometry into the hectare figures. Whole numbers only, ' +
+       'and it never changes the geometry — only the reported areas.',
+  refShow: 'Draw the uploaded mask underneath the field outlines, to compare the traced result ' +
+           'against the pixels it came from.',
+  refOpacity: 'How strongly the reference mask shows through.',
+
+  fields: 'Field polygons found in the mask, after any that sit inside an island were dropped.',
+  islands: 'Non-field areas fully enclosed by a field — trees, ponds, rocks.',
+  toBoundary: 'Bridges connecting an island cluster to the field boundary. One per cluster.',
+  chained: 'Bridges connecting one island directly to another. Chaining islands keeps bridges ' +
+           'short and stops them crossing other islands.',
+  bridgeLength: 'Total length of all bridges, in world units (wu) — the coordinate unit the ' +
+                'Giants Editor uses. Shorter is better: every bridge is a zero-width slit cut ' +
+                'into the field.',
+  points: 'Total coordinates across all fields in the exported XML.',
+  errors: 'Geometry problems found by validation — a bridge over non-field area, an unclosed ' +
+          'ring, a bad winding. Anything above 0 is worth investigating before importing.',
+  elapsed: 'Time the pipeline itself took, excluding decoding the image.',
+}
+
+function download(name, content, mime) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }))
+  const a = document.createElement('a')
+  a.href = url; a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const fmtHa = m2 => {
+  const ha = m2 / 10000
+  return ha >= 100 ? Math.round(ha).toLocaleString() : ha.toFixed(1)
+}
+
 export default function App() {
-  const [file,                   setFile]                   = useState(null)
-  const [demSize,                setDemSize]                = useState(2048)
-  const [simplificationStrength, setSimplificationStrength] = useState(0.2)
-  const [distanceThreshold,      setDistanceThreshold]      = useState(10)
-  const [borderReduction,        setBorderReduction]        = useState(0)
-  const [metersPerPixel,         setMetersPerPixel]         = useState(2)
-  const [areaUnit,               setAreaUnit]               = useState('ha')
-  const [lang,                   setLang]                   = useState('en')
-  const [privacyOpen,            setPrivacyOpen]            = useState(false)
+  const [file, setFile] = useState(null)
+  const [demSize, setDemSize] = useState(4096)
+  const [simplification, setSimplification] = useState(0.7)
+  const [clearance, setClearance] = useState(0)
+  const [unitsPerPixel, setUnitsPerPixel] = useState(1)
 
-  const [logs,       setLogs]       = useState([])
-  const [isRunning,  setIsRunning]  = useState(false)
-  const [fields,     setFields]     = useState(null)
-  const [showLabels, setShowLabels] = useState(true)
-  const [zipBuffer,  setZipBuffer]  = useState(null)
+  const [logs, setLogs] = useState([])
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [over, setOver] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
 
-  const workerRef = useRef(null)
-  const t = translations[lang]
+  // Reference underlay: the uploaded mask, drawn beneath the vectors.
+  const [refImage, setRefImage] = useState(null)
+  const [refVisible, setRefVisible] = useState(true)
+  const [refOpacity, setRefOpacity] = useState(0.4)
+  // The DEM size the on-screen result was produced with. Using the live slider
+  // instead would slide the underlay out of register the moment it changed.
+  const [ranDemSize, setRanDemSize] = useState(null)
 
-  const appendLog = useCallback((msg) => setLogs(prev => [...prev, msg]), [])
+  const worker = useRef(null)
+  const logEnd = useRef(null)
+  const liveBitmap = useRef(null)
+  const rowRefs = useRef(new Map())
 
   useEffect(() => {
-    workerRef.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
-
-    workerRef.current.onmessage = (e) => {
-      const { type, message, fields: resultFields, zipBuffer: zb } = e.data
-      if (type === 'LOG') {
-        appendLog(message)
-      } else if (type === 'DONE') {
-        setFields(resultFields)
-        setZipBuffer(zb)
-        setIsRunning(false)
-      } else if (type === 'ERROR') {
-        appendLog(`ERROR: ${message}`)
-        setIsRunning(false)
+    worker.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+    worker.current.onmessage = ({ data }) => {
+      if (data.type === 'LOG') setLogs(l => [...l, data.message])
+      else if (data.type === 'DONE') {
+        setResult(data)
+        setRunning(false)
+        trackEvent('pipeline_completed', {
+          fields: data.stats.fields,
+          islands: data.stats.islands,
+          errors: data.stats.errors,
+        })
+      } else if (data.type === 'ERROR') {
+        setLogs(l => [...l, `ERROR: ${data.message}`])
+        setRunning(false)
+        trackEvent('pipeline_failed')
       }
     }
-
-    workerRef.current.onerror = (e) => {
-      appendLog(`Worker error: ${e.message}`)
-      setIsRunning(false)
+    worker.current.onerror = e => {
+      setLogs(l => [...l, `Worker error: ${e.message}`])
+      setRunning(false)
     }
+    return () => worker.current?.terminate()
+  }, [])
 
-    return () => workerRef.current?.terminate()
-  }, [appendLog])
+  useEffect(() => { logEnd.current?.scrollIntoView({ block: 'end' }) }, [logs])
 
-  async function handleRun() {
-    if (!file || isRunning) return
-    setIsRunning(true)
-    setFields(null)
-    setZipBuffer(null)
-    setLogs([])
-    appendLog('Starting the tool...')
-    trackEvent('pipeline_started')
+  // Decode the mask once for the underlay. An ImageBitmap draws far faster than
+  // an <img> when it is redrawn on every pan frame, which matters at 8192².
+  // The live bitmap is tracked in a ref so the previous one can be released
+  // without putting a side effect inside a state updater.
+  useEffect(() => {
+    if (!file) {
+      liveBitmap.current?.close?.()
+      liveBitmap.current = null
+      setRefImage(null)
+      return
+    }
+    let cancelled = false
+    createImageBitmap(file).then(bmp => {
+      if (cancelled) { bmp.close?.(); return }
+      liveBitmap.current?.close?.()
+      liveBitmap.current = bmp
+      setRefImage(bmp)
+    }).catch(() => { if (!cancelled) setRefImage(null) })
+    return () => { cancelled = true }
+  }, [file])
 
-    const imageBuffer = await file.arrayBuffer()
-    workerRef.current.postMessage(
-      { type: 'RUN', payload: { imageBuffer, demSize, simplificationStrength, distanceThreshold, borderReduction, metersPerPixel } },
-      [imageBuffer]
-    )
+  // Keep the selected row in view when the selection came from the canvas.
+  useEffect(() => {
+    if (selected == null) return
+    rowRefs.current.get(selected)?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
+  const run = useCallback(async () => {
+    if (!file || running) return
+    setRunning(true); setResult(null); setSelected(null); setLogs([])
+    setRanDemSize(demSize)
+    trackEvent('pipeline_started', { demSize, simplification, clearance })
+    const buffer = await file.arrayBuffer()
+    worker.current.postMessage(
+      { type: 'RUN', imageBuffer: buffer, options: { demSize, simplification, clearance, unitsPerPixel } },
+      [buffer])
+  }, [file, running, demSize, simplification, clearance, unitsPerPixel])
+
+  function pick(f) {
+    if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
   }
 
-  function handleToggleLabels() { setShowLabels(prev => !prev) }
+  const stats = result?.stats
+  const chained = stats ? stats.bridges - stats.bridgesToBoundary : 0
+  const totalAreaM2 = useMemo(
+    () => result?.fields.reduce((s, f) => s + f.areaM2, 0) ?? 0,
+    [result])
 
   return (
-    <div className="flex flex-col w-screen h-screen bg-background overflow-hidden">
-
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-[9px] bg-secondary flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.20)]">
-        <span className="text-[14px] font-bold text-secondary-foreground tracking-tight">
-          {t.appTitle}
-        </span>
-        <Badge
-          variant="outline"
-          className="ml-1 border-[#3D8B67] text-[#52B788] bg-transparent text-[14px] px-2"
-        >
-          v0.2.0 - web
-        </Badge>
-
-        <button
-          onClick={() => setPrivacyOpen(true)}
-          className="ml-auto text-[13px] text-secondary-foreground/80 underline underline-offset-2 hover:text-secondary-foreground"
-        >
-          {t.privacy}
-        </button>
-
-        {/* Language toggle */}
-        <div className="flex gap-1">
-          {['en', 'de'].map(l => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              className={[
-                'text-[13px] font-medium px-2 py-[2px] rounded border transition-colors uppercase tracking-wide',
-                lang === l
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground',
-              ].join(' ')}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+    <div className="app">
+      <header>
+        <h1>ImageToFields</h1>
+        <span className="tag">v{VERSION}</span>
+        <span className="spacer" />
+        <button className="headerlink" onClick={() => setPrivacyOpen(true)}>Privacy</button>
+        <span className="note">{file ? file.name : 'no mask loaded'}</span>
       </header>
 
-      {/* Body - three columns */}
-      <div className="flex flex-1 min-h-0">
+      <div className="body">
+        {/* ---------------- controls ---------------- */}
+        <div className="col left">
+          <div className="section">
+            <h2 className="tip" title={TIP.mask}>Field mask</h2>
+            <label
+              className={`drop${over ? ' over' : ''}`}
+              onDragOver={e => { e.preventDefault(); setOver(true) }}
+              onDragLeave={() => setOver(false)}
+              onDrop={e => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files?.[0]) }}
+            >
+              <input type="file" accept="image/png" hidden
+                     onChange={e => pick(e.target.files?.[0])} />
+              <strong>{file ? file.name : 'Drop a PNG'}</strong>
+              <small>{file ? 'click to replace' : 'white = field, black = everything else'}</small>
+            </label>
+          </div>
 
-        {/* Log panel */}
-        <div className="w-1/4 flex flex-col min-h-0 border-r border-border">
-          <LogPanel logs={logs} t={t} />
+          <div className="section">
+            <h2>Settings</h2>
+
+            <div className="field">
+              <label className="tip" htmlFor="dem" title={TIP.dem}>DEM size</label>
+              <select id="dem" value={demSize} onChange={e => setDemSize(+e.target.value)}>
+                {DEM_SIZES.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+
+            <div className="field">
+              <label className="tip" htmlFor="simp" title={TIP.simplify}>Simplification</label>
+              <input id="simp" type="range" min="0" max="2" step="0.05"
+                     value={simplification} onChange={e => setSimplification(+e.target.value)} />
+              <span className="val">{simplification.toFixed(2)}</span>
+            </div>
+
+            <div className="field">
+              <label className="tip" htmlFor="clr" title={TIP.clearance}>Clearance</label>
+              <input id="clr" type="range" min="0" max="10" step="0.5"
+                     value={clearance} onChange={e => setClearance(+e.target.value)} />
+              <span className="val">{clearance.toFixed(1)}</span>
+            </div>
+
+            <div className="field">
+              <label className="tip" htmlFor="upp" title={TIP.upp}>Units per pixel</label>
+              <input id="upp" type="number" min="1" step="1" inputMode="numeric"
+                     value={unitsPerPixel}
+                     onKeyDown={e => { if (e.key === '.' || e.key === ',' || e.key === 'e') e.preventDefault() }}
+                     onChange={e => {
+                       // Whole units only, so the spinner and the arrow keys
+                       // both move by exactly one.
+                       const v = parseInt(e.target.value, 10)
+                       if (Number.isFinite(v) && v >= 1) setUnitsPerPixel(v)
+                     }} />
+            </div>
+          </div>
+
+          <div className="section">
+            <h2>Reference image</h2>
+            <label className={`check${refImage ? '' : ' disabled'}`} title={TIP.refShow}>
+              <input type="checkbox" checked={refVisible && !!refImage} disabled={!refImage}
+                     onChange={e => setRefVisible(e.target.checked)} />
+              <span>Show uploaded mask</span>
+            </label>
+            <div className="field">
+              <label className="tip" htmlFor="op" title={TIP.refOpacity}>Opacity</label>
+              <input id="op" type="range" min="0.05" max="1" step="0.05"
+                     value={refOpacity} disabled={!refImage || !refVisible}
+                     onChange={e => setRefOpacity(+e.target.value)} />
+              <span className="val">{refOpacity.toFixed(2)}</span>
+            </div>
+            {refImage && (
+              <p className="hint">
+                {refImage.width}×{refImage.height} px spanning {(ranDemSize ?? demSize).toLocaleString()} wu wide
+                {refImage.width !== refImage.height &&
+                  ` × ${Math.round((ranDemSize ?? demSize) * refImage.height / refImage.width).toLocaleString()} wu tall`}
+              </p>
+            )}
+          </div>
+
+          <div className="section">
+            <button className="btn primary" onClick={run} disabled={!file || running}>
+              {running ? 'Running…' : 'Run'}
+            </button>
+            <button className="btn" disabled={!result}
+                    onClick={() => {
+                      trackEvent('xml_downloaded')
+                      download('final_field_coordinates.xml', result.xml, 'application/xml')
+                    }}>
+              Download XML
+            </button>
+          </div>
+
+          {stats && (
+            <div className="section">
+              <h2>Result</h2>
+              <dl className="stats">
+                <dt className="tip" title={TIP.fields}>Fields</dt>
+                <dd>{stats.fields}</dd>
+
+                <dt className="tip" title={TIP.islands}>Islands</dt>
+                <dd>{stats.islands}</dd>
+
+                <dt className="tip" title={TIP.toBoundary}>Bridges to boundary</dt>
+                <dd>{stats.bridgesToBoundary}</dd>
+
+                <dt className="tip" title={TIP.chained}>Island-to-island</dt>
+                <dd>{chained}</dd>
+
+                <dt className="tip" title={TIP.bridgeLength}>Bridge length</dt>
+                <dd>{stats.bridgeLength.toFixed(0)} wu</dd>
+
+                <dt className="tip" title={TIP.points}>Output points</dt>
+                <dd>{stats.points.toLocaleString()}</dd>
+
+                <dt className="tip" title={TIP.errors}>Errors</dt>
+                <dd className={stats.errors ? 'bad' : 'good'}>{stats.errors}</dd>
+
+                <dt className="tip" title={TIP.elapsed}>Elapsed</dt>
+                <dd>{stats.elapsedMs.toLocaleString()} ms ({(stats.elapsedMs / 1000).toFixed(2)} s)</dd>
+              </dl>
+            </div>
+          )}
         </div>
 
-        {/* Controls panel */}
-        <div className="w-1/4 flex flex-col min-h-0 border-r border-border">
-          <ControlsPanel
-            file={file} onFile={setFile}
-            demSize={demSize} setDemSize={setDemSize}
-            simplificationStrength={simplificationStrength} setSimplificationStrength={setSimplificationStrength}
-            distanceThreshold={distanceThreshold} setDistanceThreshold={setDistanceThreshold}
-            borderReduction={borderReduction} setBorderReduction={setBorderReduction}
-            metersPerPixel={metersPerPixel} setMetersPerPixel={setMetersPerPixel}
-            areaUnit={areaUnit} setAreaUnit={setAreaUnit}
-            onRun={handleRun}
-            onToggleLabels={handleToggleLabels}
-            isRunning={isRunning}
-            hasResult={!!fields}
-            zipBuffer={zipBuffer}
-            t={t}
-          />
-        </div>
-
-        {/* Canvas panel */}
-        <div className="w-1/2 flex flex-col min-h-0">
+        {/* ---------------- canvas ---------------- */}
+        <div className="col">
           <FieldCanvas
-            fields={fields}
-            showLabels={showLabels}
-            areaUnit={areaUnit}
-            t={t}
+            fields={result?.fields}
+            selected={selected}
+            onSelect={setSelected}
+            refImage={refImage}
+            refVisible={refVisible}
+            refOpacity={refOpacity}
+            refDemSize={ranDemSize ?? demSize}
           />
         </div>
 
+        {/* ---------------- fields + log ---------------- */}
+        <div className="col right">
+          <div className="panel-head">
+            <h2>
+              Fields {result ? `(${result.fields.length})` : ''}
+              {result && <span className="sub">{fmtHa(totalAreaM2)} ha</span>}
+            </h2>
+          </div>
+
+          <div className="list">
+            {result?.fields.map(f => {
+              const chain = f.bridges.filter(b => b.fromRing !== 0).length
+              const err = f.issues.some(i => i.level === 'error')
+              return (
+                <div key={f.id}
+                     ref={el => { el ? rowRefs.current.set(f.id, el) : rowRefs.current.delete(f.id) }}
+                     className={`row${selected === f.id ? ' sel' : ''}${err ? ' err' : ''}`}
+                     onClick={() => setSelected(selected === f.id ? null : f.id)}>
+                  <span className="id">#{f.id}</span>
+                  <span className="meta">
+                    {f.pointCount} pts
+                    {f.islandCount > 0 && ` · ${f.islandCount} island${f.islandCount > 1 ? 's' : ''}`}
+                    {chain > 0 && <span className="pill chain">{chain} chained</span>}
+                    {err && <span className="pill err">error</span>}
+                  </span>
+                  <span className="area">{(f.areaM2 / 10000).toFixed(1)} ha</span>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="panel-head divider">
+            <h2>Log</h2>
+          </div>
+          <pre className="log">
+            {logs.map((l, i) => (
+              <div key={i} className={/ERROR/.test(l) ? 'e' : /WARNING/.test(l) ? 'w' : ''}>{l}</div>
+            ))}
+            <div ref={logEnd} />
+          </pre>
+        </div>
       </div>
 
-      <PrivacyNotice t={t} open={privacyOpen} onClose={setPrivacyOpen} />
+      <PrivacyNotice open={privacyOpen} onClose={setPrivacyOpen} />
     </div>
   )
 }

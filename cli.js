@@ -18,7 +18,7 @@ import { auditXML } from './audit.js'
 
 function parseArgs(argv) {
   const opt = {
-    input: null, out: 'out', demSize: 2048, simplification: 0.2,
+    input: null, out: 'out', demSize: 2048, simplification: 0.7,
     clearance: 0, unitsPerPixel: 1, svg: true, quiet: false, audit: null,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -47,7 +47,7 @@ FS25 ImageToFields — rebuild CLI
 
 Options
   --dem <n>          DEM size (1024|2048|4096|8192)   default 2048
-  --simplify <f>     RDP tolerance                    default 0.2
+  --simplify <f>     RDP tolerance                    default 0.7
   --clearance <f>    border reduction / island clearance, world units   default 0
   --upp <n>          world units per source pixel, for area reporting   default 1
   --out <dir>        output directory                 default ./out

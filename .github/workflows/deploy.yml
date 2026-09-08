@@ -5,6 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: the workflow only reads the repository and publishes Pages.
 permissions:
   contents: read
   pages: write
@@ -15,7 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Geometry regressions must not reach the live site, so the pipeline's tests
+  # gate the deploy rather than running alongside it.
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,16 +26,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - run: npm ci
+      - run: npm test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
         working-directory: web
 
       - name: Build
         run: npm run build
         working-directory: web
-        env:
-          VITE_BASE: /${{ github.event.repository.name }}/
 
       - uses: actions/upload-pages-artifact@v3
         with:

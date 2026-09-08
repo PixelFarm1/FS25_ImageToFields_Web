@@ -1,99 +1,139 @@
 # FS25 Image to Fields
 
-A free, browser-based tool for converting a field mask image into field coordinates for Farming Simulator 25. No installation required — runs entirely in your browser.
+A free, browser-based tool that turns a field mask image into field coordinates for
+Farming Simulator 25. No installation, no upload — everything runs in your browser.
 
 **[Try it here → https://pixelfarm1.github.io/FS25_ImageToFields_Web/](https://pixelfarm1.github.io/FS25_ImageToFields_Web/)**
 
 ---
 
-<img width="2503" height="1299" alt="image" src="https://github.com/user-attachments/assets/fb616bdc-41d5-45b1-a226-037999d94d61" />
-
-
----
-
 ## What it does
 
-Upload a white-on-black field mask image and the tool traces every field boundary, processes the coordinates through a multi-stage pipeline, and produces a ready-to-use XML file. Download everything as a `.zip` that also includes `coordinatesToFields.lua` — a Giants Editor script that reads the XML and places field polygons directly into your map, aligned to the terrain.
+Drop in a white-on-black field mask and the tool traces every field boundary, works out
+which non-field areas are islands inside them, connects those islands into a single
+importable polygon, and writes a ready-to-use XML. The download also includes
+`coordinatesToFields.lua`, a Giants Editor script that reads the XML and places the field
+polygons into your map, aligned to the terrain.
 
 ## What a correct field mask looks like
 
-![Field mask example](https://github.com/user-attachments/assets/072c551c-b220-487e-8f28-8bebe1ef1e2a)
+White areas are fields. Black is everything else.
 
-White areas = fields. Black areas = everything else. Each field must be a distinct, clean white region with no stray pixels and enough separation between neighbouring boundaries for the tool to distinguish them.
+- Fields must be solid white on a pure black background
+- No stray white pixels outside field areas
+- Neighbouring field borders need at least a 1-pixel gap, or they merge into one field
+- Black areas fully enclosed by a field are treated as **islands** — trees, ponds, rocks —
+  and are cut out of the field automatically
+- A white area inside an island is not a field and is discarded, with a warning
 
----
+## How to use it
 
-## How to use
+1. Open the [web app](https://pixelfarm1.github.io/FS25_ImageToFields_Web/)
+2. Drop your field mask PNG onto the drop zone
+3. Set **DEM size** to your map's `DEM.png` resolution minus 1 — a 4097×4097 DEM means 4096
+4. Adjust **Simplification** and **Clearance** if you want (see below)
+5. Press **Run**, then **Download XML**
+6. In the Giants Editor, run `coordinatesToFields.lua` and pick the XML
 
-### 1 — Prepare your field mask
+Hover any setting or result figure in the app for an explanation.
 
-- All fields must be solid white on a pure black background
-- No stray white pixels outside field areas, no black holes inside them
-- Neighbouring field borders must have at least a 1-pixel gap between them (imagine driving a 1×1 pixel tractor along every border — if it can't pass, widen that gap)
+### Settings
 
-### 2 — Run the tool
+| Setting | What it does |
+| --- | --- |
+| **DEM size** | Your DEM resolution minus 1. Sets the world scale, so a 1024 px and an 8192 px mask give the same coordinates. |
+| **Simplification** | How aggressively boundary points are removed. Capped per ring at 2% of that ring's own size, so small islands keep their shape at settings that thin a large boundary. |
+| **Clearance** | Pulls field boundaries inward *and* grows islands outward by the same amount, so machinery gets the same clearance around a tree island as at the field edge. |
+| **Units per pixel** | How many world units one mask pixel covers. Affects the reported areas only, never the geometry. |
+| **Reference image** | Draws your mask underneath the traced outlines so you can see exactly what simplification changed. |
 
-1. Open the [web app](https://pixelfarm1.github.io/FS25_ImageToFields_Web/) in your browser
-2. Drop your field mask PNG onto the drop zone (or click to browse)
-3. Set the **DEM size** to match your map — this is the resolution of `DEM.png` minus 1 (e.g. a 2049×2049 DEM → choose **2048**)
-4. Set **m / pixel** to match your map scale (default is 2 m/pixel, correct for a standard 2km FS25 map with a 1024px mask)
-5. Choose your preferred area unit — **Hectares** or **Acres**
-6. Leave the processing settings at their defaults for the first run, then adjust if needed:
-   - **Simplification strength** — reduces polygon point count; higher = smoother but less accurate
-   - **Distance threshold** — controls how gaps between points split a field into separate loops
-7. Press **Run** and watch the log panel
+## How islands are handled
 
-### 3 — Inspect the result
+A field with islands can't be expressed as a plain vertex list, so each island is stitched
+into the outer boundary with a zero-width bridge — out to the island, around it, back along
+the same line. The Giants Editor sees one closed polygon and the doubled-back slit reads as
+a hole.
 
-The canvas shows all detected fields with their ID, node count, and area. Pan with click-drag, zoom with the scroll wheel. Press **Toggle field IDs** to hide/show the labels.
+Choosing *where* those bridges go is the hard part. Bridges are picked in three steps:
 
-### 4 — Download and import into Giants Editor
+1. **Visibility filtering.** Candidate bridges are generated between every pair of rings,
+   and any that crosses a ring or leaves the field is discarded before it can be chosen.
+2. **A minimum spanning tree.** Short island-to-island links beat long island-to-boundary
+   ones, so nearby islands chain together and each cluster reaches the boundary through
+   exactly one bridge.
+3. **A depth-first walk** emits it all as a single closed ring, visiting both ends of every
+   bridge twice so the slit stays zero-width and no sliver of non-field area is introduced.
 
-1. Press **Download .zip** — it contains all intermediate XML files plus `coordinatesToFields.lua`
-2. Open your map in Giants Editor
-3. Make sure you have a `Fields` transform group with the correct attributes, and remove any existing children from it
-4. Drop `coordinatesToFields.lua` into your GE scripts folder (or load it as a script)
-5. Run the script — a file dialog opens, select your `final_field_coordinates.xml`
-6. The script creates all field polygons, aligns them to the terrain, and repaints the cultivated ground
+Every result is then validated — bridges that cross geometry, unclosed rings, inconsistent
+winding, area mismatches — and anything found is reported per field in the app.
 
----
+## Command line
 
-## Suggested workflow for FS22 map conversions
+The same pipeline runs headlessly, which is useful for batching or for checking a mask
+without opening the editor.
 
-*Prerequisites: a FS22 map where fields are painted with terrainDetail (the densityMap_ground.gdm)*
+```bash
+npm install
+node cli.js mask.png --dem 4096 --out out/
+```
 
-1. Convert `densityMap_ground.gdm` using the converter at GDN
-2. Open the converted file in GIMP and add a new layer with white fill
-3. If the image turns all red instead of white: **Image → Mode → RGB**, then recreate the white layer
-4. Set the white layer blending mode to **Dodge** and merge the two layers
-5. Use **Select by Color** (Shift+O) and click one of the bright red field areas to see the selection
-6. Check carefully for stray pixels or gaps — they are easiest to spot in select mode
-7. When the mask looks clean, create a new layer with white fill
-8. Set the blending mode to **HSV Saturation** — field areas will turn white
-9. Merge the layers and repeat step 6 to do a final check
-10. Export the result with these settings:
+| Option | Meaning | Default |
+| --- | --- | --- |
+| `--dem <n>` | DEM size (1024 / 2048 / 4096 / 8192) | 2048 |
+| `--simplify <f>` | Simplification tolerance | 0.7 |
+| `--clearance <f>` | Border reduction and island clearance, world units | 0 |
+| `--upp <n>` | World units per source pixel, for area reporting | 1 |
+| `--out <dir>` | Output directory | `./out` |
+| `--no-svg` | Skip the debug SVG | |
 
-![Export settings](https://github.com/user-attachments/assets/b032a1dc-792b-4017-9600-4cf197ea9113)
+Outputs `final_field_coordinates.xml` (the one to import), `field_rings.xml`, a `debug.svg`
+showing boundaries, islands and bridges in distinct colours, and a `report.json`.
 
-11. Run the web tool as described above
+To re-check an XML produced by any version of this tool for bridges running over non-field
+area:
 
----
+```bash
+node cli.js --audit path/to/final_field_coordinates.xml
+```
+
+## Development
+
+```bash
+npm install          # pipeline + CLI
+npm test             # geometry tests
+
+cd web
+npm install
+npm run dev          # http://localhost:5180
+```
+
+`web/` is a Vite + React app that imports `core/` directly, so the browser and the CLI run
+identical code with no branch between them. `core/` is free of DOM and Node specifics: it
+takes `{ width, height, rgba }` and returns plain objects, filled from `OffscreenCanvas` in
+the browser and from `pngjs` on the command line.
+
+```
+core/        pipeline — raster, contours, offset, simplify, bridge, validate, xml
+cli.js       headless runner
+audit.js     crossing checker for a produced XML
+fixtures/    synthetic masks used by the tests
+test/        geometry tests
+web/         browser app
+```
+
+The tests assert invariants rather than compare against golden files, so a change that
+shifts coordinates but keeps the geometry sound passes, while one that opens a sliver or
+routes a bridge over an island fails: the ring closes, emitted area equals boundary minus
+islands exactly, winding is normalised, no bridge crosses any ring or leaves the field,
+both ends of every bridge are visited twice, and every island is reachable.
 
 ## Privacy
 
-**Your images never leave your computer.** The entire pipeline runs in your browser
-via a Web Worker — there is no backend and nothing is uploaded.
+Everything runs in your browser — masks and generated XML are never uploaded, and there is
+no backend. Optional Google Analytics loads only if you accept the consent banner; decline
+and no cookies are set at all. The Inter typeface is self-hosted, so no request reaches
+Google Fonts. See *Privacy* in the app header for the full notice.
 
-The site uses Google Analytics 4 to count visits, but it is **opt-in**: no analytics
-script is loaded and no cookies are set until you accept the banner. Declining sets
-nothing at all, and you can change or withdraw your choice at any time via the
-**Privacy** link in the header. The Inter typeface is self-hosted, so no request is
-made to Google Fonts either.
+## Credits
 
-The site is hosted on GitHub Pages, which keeps standard server access logs.
-
----
-
-## License
-
-See [LICENSE](LICENSE).
+Created by **PixelFarm**. Licensed under the [MIT License](LICENSE).
