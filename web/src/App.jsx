@@ -76,6 +76,33 @@ export function buildOutputZip(xml) {
   }, { level: 6 })
 }
 
+/**
+ * Whole-number input that lets the text be edited freely and only clamps on
+ * blur. Clamping per keystroke turned typing "12" into min-then-"22", and
+ * rejecting an empty box made the old value impossible to clear.
+ */
+function IntInput({ value, min, max = Infinity, onChange, ...rest }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
+  return (
+    <input type="number" inputMode="numeric" step="1" min={min} max={max === Infinity ? undefined : max}
+           {...rest}
+           value={text}
+           onKeyDown={e => { if (e.key === '.' || e.key === ',' || e.key === 'e') e.preventDefault() }}
+           onChange={e => {
+             setText(e.target.value)
+             const v = parseInt(e.target.value, 10)
+             if (v >= min && v <= max) onChange(v)
+           }}
+           onBlur={() => {
+             const v = parseInt(text, 10)
+             const c = Number.isFinite(v) ? Math.max(min, Math.min(max, v)) : value
+             onChange(c)
+             setText(String(c))
+           }} />
+  )
+}
+
 const fmtHa = m2 => {
   const ha = m2 / 10000
   return ha >= 100 ? Math.round(ha).toLocaleString() : ha.toFixed(1)
@@ -172,7 +199,14 @@ export default function App() {
     setRunning(true); setResult(null); setSelected(null); setLogs([])
     setRanDemSize(demSize)
     trackEvent('pipeline_started', { demSize, simplification, clearance, numbering, strokes: strokes.length })
-    const buffer = await file.arrayBuffer()
+    let buffer
+    try {
+      buffer = await file.arrayBuffer()
+    } catch (err) {
+      setLogs([`ERROR: could not read ${file.name}: ${err?.message ?? err}`])
+      setRunning(false)
+      return
+    }
     worker.current.postMessage(
       { type: 'RUN', imageBuffer: buffer,
         options: { demSize, simplification, clearance, unitsPerPixel,
@@ -182,7 +216,9 @@ export default function App() {
       numbering, radialCorner, radialSteps, strokes])
 
   function pick(f) {
-    if (f && /\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
+    // A run in flight would land its result on top of the new mask.
+    if (running) return
+    if (f &&/\.png$/i.test(f.name)) { setFile(f); setResult(null); setLogs([]); setSelected(null) }
   }
 
   const stats = result?.stats
@@ -212,7 +248,7 @@ export default function App() {
               onDragLeave={() => setOver(false)}
               onDrop={e => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files?.[0]) }}
             >
-              <input type="file" accept="image/png" hidden
+              <input type="file" accept="image/png" hidden disabled={running}
                      onChange={e => pick(e.target.files?.[0])} />
               <strong>{file ? file.name : 'Drop a PNG'}</strong>
               <small>{file ? 'click to replace' : 'white = field, black = everything else'}</small>
@@ -245,15 +281,7 @@ export default function App() {
 
             <div className="field">
               <label className="tip" htmlFor="upp" title={TIP.upp}>Units per pixel</label>
-              <input id="upp" type="number" min="1" step="1" inputMode="numeric"
-                     value={unitsPerPixel}
-                     onKeyDown={e => { if (e.key === '.' || e.key === ',' || e.key === 'e') e.preventDefault() }}
-                     onChange={e => {
-                       // Whole units only, so the spinner and the arrow keys
-                       // both move by exactly one.
-                       const v = parseInt(e.target.value, 10)
-                       if (Number.isFinite(v) && v >= 1) setUnitsPerPixel(v)
-                     }} />
+              <IntInput id="upp" min={1} value={unitsPerPixel} onChange={setUnitsPerPixel} />
             </div>
 
             <div className="field stack">
@@ -279,14 +307,8 @@ export default function App() {
                 </div>
                 <div className="field">
                   <label className="tip" htmlFor="rings" title={TIP.radialSteps}>Rings</label>
-                  <input id="rings" type="number" inputMode="numeric"
-                         min={RADIAL_STEPS.min} max={RADIAL_STEPS.max} step="1" value={radialSteps}
-                         onChange={e => {
-                           const v = parseInt(e.target.value, 10)
-                           if (Number.isFinite(v)) {
-                             setRadialSteps(Math.max(RADIAL_STEPS.min, Math.min(RADIAL_STEPS.max, v)))
-                           }
-                         }} />
+                  <IntInput id="rings" min={RADIAL_STEPS.min} max={RADIAL_STEPS.max}
+                            value={radialSteps} onChange={setRadialSteps} />
                 </div>
               </>
             )}

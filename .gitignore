@@ -13,6 +13,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Local tooling: knowledge-graph output and editor workspaces
+graphify-out/
+*.code-workspace
+
 # OS noise
 .DS_Store
 Thumbs.db

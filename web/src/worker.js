@@ -4,8 +4,6 @@
  * implementation and no branch between the two environments.
  */
 import { runPipeline } from '../../core/pipeline.js'
-import { renderDebugSVG } from '../../debugSvg.js'
-import { finalFieldsToXML } from '../../core/xml.js'
 
 self.onmessage = async (e) => {
   if (e.data.type !== 'RUN') return
@@ -27,7 +25,9 @@ self.onmessage = async (e) => {
 
     const issuesById = new Map(result.validation.report.map(r => [r.id, r.issues]))
 
-    // Rings and bridges are needed for drawing; coordinates for the XML.
+    // Rings and bridges are needed for drawing. The flattened coordinates stay
+    // here: the XML is already built from them, and they are the bulk of the
+    // message.
     const fields = result.fields.map(f => ({
       id: f.id,
       sourceId: f.sourceId,
@@ -41,7 +41,6 @@ self.onmessage = async (e) => {
       pointCount: f.coordinates.length,
       rings: f.rings,
       bridges: f.bridges,
-      coordinates: f.coordinates,
       issues: issuesById.get(f.id) ?? [],
     }))
 
@@ -49,15 +48,9 @@ self.onmessage = async (e) => {
       type: 'DONE',
       fields,
       stats: result.stats,
-      warnings: result.warnings,
       xml: result.xml.final,
-      svg: renderDebugSVG(fields),
     })
   } catch (err) {
     self.postMessage({ type: 'ERROR', message: String(err?.stack ?? err?.message ?? err) })
   }
 }
-
-// Re-exported so the main thread can rebuild XML after a client-side tweak
-// without re-running the whole pipeline.
-export { finalFieldsToXML }
