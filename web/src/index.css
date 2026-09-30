@@ -339,25 +339,19 @@ canvas.painting { cursor: crosshair; }
 .pill.chain { background: hsl(var(--muted)); color: var(--chain); }
 .pill.err   { background: hsl(var(--accent)); color: hsl(var(--destructive)); }
 
-/* ── Consent banner & privacy dialog ──────────────────────────────────────── */
-.consent {
-  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
-  padding: 12px 18px;
-  background: hsl(var(--card));
+/* ── Footer disclaimer ───────────────────────────────────────────────────── */
+footer {
+  padding: 5px 16px; font-size: 11.5px; line-height: 1.5;
+  color: hsl(var(--muted-foreground));
   border-top: 1px solid hsl(var(--border));
-  box-shadow: 0 -2px 12px rgb(0 0 0 / 0.15);
 }
-.consent p { flex: 1; min-width: 280px; margin: 0; font-size: 13px; line-height: 1.5; }
-.consent-actions { display: flex; gap: 8px; flex: none; }
-.consent-actions .btn { width: auto; padding: 6px 14px; }
-
-.linkbtn {
+.footlink {
   background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
-  color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 2px;
+  color: inherit; text-decoration: underline; text-underline-offset: 2px;
 }
-.linkbtn:hover { color: hsl(354 72% 46%); }
+.footlink:hover { color: hsl(var(--foreground)); }
 
+/* ── Privacy dialog ─────────────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 50;
   display: grid; place-items: center; padding: 16px;
@@ -376,9 +370,9 @@ canvas.painting { cursor: crosshair; }
   margin-top: 14px; padding-top: 12px;
   border-top: 1px solid hsl(var(--border));
 }
-.modal-foot p { flex: 1; min-width: 200px; margin: 0; color: hsl(var(--muted-foreground)); }
+
 .modal-foot strong { color: hsl(var(--foreground)); }
-.modal-actions { display: flex; gap: 8px; flex: none; }
+.modal-actions { display: flex; gap: 8px; flex: none; margin-left: auto; }
 .modal-actions .btn { width: auto; padding: 6px 14px; }
 
 /* ── Scrollbar — same treatment as the main app ───────────────────────────── */

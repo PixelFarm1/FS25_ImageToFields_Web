@@ -3,6 +3,10 @@
 A free, browser-based tool that turns a field mask image into field coordinates for
 Farming Simulator 25. No installation, no upload — everything runs in your browser.
 
+*Unofficial community tool. Not affiliated with, endorsed by or sponsored by GIANTS Software
+GmbH. Farming Simulator and GIANTS Editor are trademarks of GIANTS Software. Provided “as is”
+without warranty — check the results before using them in your map.*
+
 **[Try it here → https://pixelfarm1.github.io/FS25_ImageToFields_Web/](https://pixelfarm1.github.io/FS25_ImageToFields_Web/)**
 
 ---
@@ -112,10 +116,12 @@ winding, area mismatches — and anything found is reported per field in the app
 ## Privacy
 
 Everything runs in your browser — masks and generated XML are never uploaded, and there is
-no backend. Optional Google Analytics loads only if you accept the consent banner; decline
-and no cookies are set at all. The Inter typeface is self-hosted, so no request reaches
-Google Fonts. See *Privacy* in the app header for the full notice.
+no backend. There is no analytics or tracking and no cookies are set. The Inter typeface
+is self-hosted, so no request reaches Google Fonts. The site is hosted on GitHub Pages,
+which logs access data (including IP addresses) as part of delivering the page. See
+*Privacy* in the app header for the full notice.
 
 ## License
 
-Created by **PixelFarm**. See [LICENSE](LICENSE).
+Created by **PixelFarm**. See [LICENSE](LICENSE). Licenses of the bundled third-party
+libraries and the Inter font are in [THIRD_PARTY_NOTICES.txt](web/public/THIRD_PARTY_NOTICES.txt).
