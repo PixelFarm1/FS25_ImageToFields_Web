@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { zipSync, strToU8 } from 'fflate'
 import FieldCanvas from './FieldCanvas.jsx'
 import PrivacyNotice from './PrivacyNotice.jsx'
-import { trackEvent } from './analytics.js'
 import {
   NUMBERING_ORDERS, NUMBERING_LABELS,
   RADIAL_STEPS, RADIAL_CORNERS, RADIAL_CORNER_LABELS,
@@ -147,15 +146,9 @@ export default function App() {
       else if (data.type === 'DONE') {
         setResult(data)
         setRunning(false)
-        trackEvent('pipeline_completed', {
-          fields: data.stats.fields,
-          islands: data.stats.islands,
-          errors: data.stats.errors,
-        })
       } else if (data.type === 'ERROR') {
         setLogs(l => [...l, `ERROR: ${data.message}`])
         setRunning(false)
-        trackEvent('pipeline_failed')
       }
     }
     worker.current.onerror = e => {
@@ -198,7 +191,6 @@ export default function App() {
     if (!file || running) return
     setRunning(true); setResult(null); setSelected(null); setLogs([])
     setRanDemSize(demSize)
-    trackEvent('pipeline_started', { demSize, simplification, clearance, numbering, strokes: strokes.length })
     let buffer
     try {
       buffer = await file.arrayBuffer()
@@ -366,10 +358,7 @@ export default function App() {
             </button>
             <button className="btn" disabled={!result}
                     title="Downloads the field coordinates together with coordinatesToFields.lua, the script that imports them into the Giants Editor."
-                    onClick={() => {
-                      trackEvent('zip_downloaded')
-                      download('fs25_fields.zip', buildOutputZip(result.xml), 'application/zip')
-                    }}>
+                    onClick={() => download('fs25_fields.zip', buildOutputZip(result.xml), 'application/zip')}>
               Download .zip
             </button>
           </div>
