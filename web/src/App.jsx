@@ -454,6 +454,16 @@ export default function App() {
         </div>
       </div>
 
+      <footer>
+        Unofficial community tool. Not affiliated with, endorsed by or sponsored by GIANTS
+        Software GmbH. Farming Simulator and GIANTS Editor are trademarks of GIANTS Software.
+        Provided “as is” without warranty. Check the results before using them in your map.
+        You are responsible for the images you process.{' '}
+        <button className="footlink" onClick={() => setPrivacyOpen(true)}>Privacy</button>
+        {' · '}
+        <a className="footlink" href="./THIRD_PARTY_NOTICES.txt" target="_blank" rel="noreferrer">Licenses</a>
+      </footer>
+
       <PrivacyNotice open={privacyOpen} onClose={setPrivacyOpen} />
     </div>
   )
